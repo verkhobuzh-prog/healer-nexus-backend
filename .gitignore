@@ -1,10 +1,14 @@
-﻿__pycache__/
-*.py[cod]
+﻿# Python
+__pycache__/
 venv/
 .env
 backend/.env
+# DB & Backups
 *.db
 *.sqlite3
-logs/
-.vscode/
 *.tar.gz
+project_backup_*.tar.gz
+structure_cleanup_*.tar.gz
+# IDE
+.vscode/
+.idea/
