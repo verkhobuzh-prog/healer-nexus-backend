@@ -1,0 +1,11 @@
+﻿# NEXUS UNIVERSE ARCHITECTURE RULES
+# 1. REGISTRY PATTERN: Inherit from BaseModule. Use registry.get('module_name')
+# 2. ASYNC-FIRST: Use AsyncSession, httpx, asyncio.sleep. No sync DB calls.
+# 3. PYTHON 3.13: Use PEP 695 type statements (type X = Y), str | None, match/case
+# 4. RESILIENCE: @retry_with_fallback and Circuit Breaker REQUIRED for AI calls
+# 5. TESTING: pytest-asyncio with mocks for every new async function
+# 6. LOGGING: os.makedirs('logs', exist_ok=True); logger = logging.getLogger(__name__)
+# 7. MULTI-PROJECT: Every module MUST have project_id
+# 8. SECURITY: try/except for all external APIs (InvalidToken, TimeoutError)
+# 9. NO PRINT: Use logger only
+# 10. NO DIRECT IMPORTS between modules - only through registry

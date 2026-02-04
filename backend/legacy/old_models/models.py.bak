@@ -1,0 +1,19 @@
+from sqlalchemy import Column, Integer, String, Float, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Specialist(Base):
+    __tablename__ = "specialists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    niche = Column(String)
+    specialty = Column(String)
+    bio = Column(String)
+    hourly_rate = Column(Integer)
+    is_active = Column(Boolean, default=True)
+    # Додаємо координати для мапи
+    latitude = Column(Float, default=50.4501)   # За замовчуванням Київ
+    longitude = Column(Float, default=30.5234)
+
