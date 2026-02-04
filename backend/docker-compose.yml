@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: backend-db-1
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: backend-redis-1
+    restart: always
+
+  admin-agent:
+    build: .
+    container_name: backend-admin-agent-1
+    # Запускаємо модуль admin_agent. Секрети з .env (не комітити .env у Git!)
+    command: python3 -m admin_agent.main
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      # TELEGRAM_BOT_TOKEN, ADMIN_CHAT_ID, GEMINI_API_KEY — задати в .env
+    restart: always
+
+  web-api:
+    build: .
+    container_name: backend-web-api-1
+    # Запускаємо FastAPI/Uvicorn
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+
+volumes:
+  postgres_data:

@@ -1,0 +1,141 @@
+"""
+Pydantic моделі для структурованих API відповідей
+Це потрібно, щоб Swagger показував JSON схеми замість "string"
+"""
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+# ============================================
+# 📊 HEALTH CHECK SCHEMAS
+# ============================================
+class HealthResponse(BaseModel):
+    """Відповідь на /api/health"""
+    status: str = Field(..., example="healthy")
+    database: str = Field(..., example="connected")
+    ai_provider: str = Field(..., example="available")
+    uptime_seconds: float = Field(..., example=3600.5)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "healthy",
+                "database": "connected",
+                "ai_provider": "available",
+                "uptime_seconds": 3600.5
+            }
+        }
+
+# ============================================
+# 🎯 SERVICES SCHEMAS
+# ============================================
+class ServiceInfo(BaseModel):
+    """Інформація про один сервіс"""
+    id: str = Field(..., example="healer")
+    name: str = Field(..., example="Енергопрактики")
+    description: str = Field(..., example="Духовні цілителі та майстри енергії")
+    icon: str = Field(..., example="🧘‍♀️")
+    available_specialists: int = Field(..., example=12)
+
+class ServicesListResponse(BaseModel):
+    """Список доступних сервісів"""
+    services: List[ServiceInfo]
+    total: int = Field(..., example=15)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "services": [
+                    {
+                        "id": "healer",
+                        "name": "Енергопрактики",
+                        "description": "Духовні цілителі",
+                        "icon": "🧘‍♀️",
+                        "available_specialists": 12
+                    }
+                ],
+                "total": 15
+            }
+        }
+
+# ============================================
+# 💬 CHAT SCHEMAS
+# ============================================
+class SpecialistShort(BaseModel):
+    """Скорочена інформація про спеціаліста для чату"""
+    name: str = Field(..., example="Таня")
+    specialty: str = Field(..., example="Рейкі майстер")
+    rate: int = Field(..., example=500, description="Ціна за годину в грн")
+    delivery: str = Field(..., example="human", description="human | ai_assisted | fully_ai")
+    is_ai: bool = Field(default=False, example=False)
+
+class ChatResponse(BaseModel):
+    """Відповідь від чат-бота з метаданими"""
+    response: str = Field(..., example="Привіт! Чим можу допомогти?")
+    status: str = Field(default="success", example="success")
+    detected_service: Optional[str] = Field(None, example="healer")
+    confidence: float = Field(default=0.0, example=0.85)
+    user_intent: Optional[str] = Field(None, example="seeking_help")
+    anxiety_score: int = Field(default=0, example=3)
+    response_mode: Optional[str] = Field(None, example="empathetic")
+    smart_link: Optional[str] = Field(None, example="/specialists/healer")
+    top_specialists: List[SpecialistShort] = Field(default_factory=list)
+    show_buttons: bool = Field(default=True, example=True)
+    error: Optional[str] = Field(None, example=None)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "response": "Знайдено 3 енергопрактики для вас",
+                "status": "success",
+                "detected_service": "healer",
+                "confidence": 0.92,
+                "user_intent": "seeking_help",
+                "anxiety_score": 4,
+                "response_mode": "empathetic",
+                "smart_link": "/specialists/healer",
+                "top_specialists": [
+                    {
+                        "name": "Таня",
+                        "specialty": "Рейкі майстер",
+                        "rate": 500,
+                        "delivery": "human",
+                        "is_ai": False
+                    }
+                ],
+                "show_buttons": True,
+                "error": None
+            }
+        }
+
+# ============================================
+# 📈 ANALYTICS SCHEMAS
+# ============================================
+class AnalyticsResponse(BaseModel):
+    """Відповідь з аналітикою платформи"""
+    total_chats: int = Field(..., example=1250)
+    active_specialists: int = Field(..., example=45)
+    most_requested_service: str = Field(..., example="healer")
+    avg_response_time_ms: float = Field(..., example=250.5)
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total_chats": 1250,
+                "active_specialists": 45,
+                "most_requested_service": "healer",
+                "avg_response_time_ms": 250.5
+            }
+        }
+
+# ============================================
+# ✅ DELETE OPERATION (204 No Content)
+# ============================================
+# Для DELETE операцій використовуйте:
+# from fastapi.responses import Response
+# 
+# @router.delete("/specialists/{id}", status_code=204)
+# async def delete_specialist(id: int):
+#     # ... логіка видалення ...
+#     return Response(status_code=204)
+#
+# Це уникне відображення "string" в Swagger

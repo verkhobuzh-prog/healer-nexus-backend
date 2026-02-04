@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Healer Nexus - Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --design-color: #3498db;
+            --design3d-color: #e67e22;
+            --edu-color: #f1c40f;
+            --healer-color: #2ecc71;
+            --bg-color: #f0f4f8;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); margin: 0; padding: 20px; }
+        
+        /* Панель фільтрів */
+        .filter-panel { text-align: center; margin-bottom: 30px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .filter-btn { 
+            padding: 10px 20px; border: none; border-radius: 20px; cursor: pointer; 
+            font-weight: bold; transition: 0.3s; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .filter-btn.active { transform: scale(1.1); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        .btn-all { border: 2px solid #ccc; }
+        .btn-healer { border: 2px solid var(--healer-color); color: var(--healer-color); }
+        .btn-design3d { border: 2px solid var(--design3d-color); color: var(--design3d-color); }
+        .btn-design { border: 2px solid var(--design-color); color: var(--design-color); }
+
+        /* Мапа */
+        #map { height: 400px; border-radius: 25px; margin-bottom: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+
+        /* Грід з картками */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 20px; padding: 20px; border-top: 8px solid #ccc; }
+        .card.healer { border-top-color: var(--healer-color); }
+        .card.design3d { border-top-color: var(--design3d-color); }
+        .card.design { border-top-color: var(--design-color); }
+        
+        .name { font-size: 1.5rem; margin: 10px 0; }
+        .btn { display: block; text-align: center; padding: 10px; background: #3498db; color: white; text-decoration: none; border-radius: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="filter-panel">
+        <button class="filter-btn btn-all active" onclick="filterNiche('all')">Всі</button>
+        <button class="filter-btn btn-healer" onclick="filterNiche('healer')">Цілителі</button>
+        <button class="filter-btn btn-design3d" onclick="filterNiche('3d-design')">3D Дизайн</button>
+        <button class="filter-btn btn-design" onclick="filterNiche('designer')">Дизайнери</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="grid" class="grid"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let allData = [];
+        const map = L.map('map').setView([50.45, 30.52], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let markers = [];
+
+        async function load() {
+            const r = await fetch('/api/specialists');
+            allData = await r.json();
+            render(allData);
+        }
+
+        function render(data) {
+            // Очистка мапи
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            // Рендер карток
+            document.getElementById('grid').innerHTML = data.map(s => {
+                let colorClass = 'healer';
+                if (s.niche.includes('3d')) colorClass = 'design3d';
+                else if (s.niche.includes('design')) colorClass = 'design';
+
+                // Додавання маркера на мапу
+                const mColor = colorClass === 'healer' ? '#2ecc71' : (colorClass === 'design3d' ? '#e67e22' : '#3498db');
+                if (s.latitude && s.longitude) {
+                    const marker = L.circleMarker([s.latitude, s.longitude], {
+                        radius: 8, fillColor: mColor, color: "#fff", weight: 2, fillOpacity: 0.9
+                    }).addTo(map).bindPopup(`<b>${s.name}</b><br>${s.specialty}`);
+                    markers.push(marker);
+                }
+
+                return `
+                    <div class="card ${colorClass}">
+                        <span style="font-size: 0.8rem; font-weight: bold;">${s.niche.toUpperCase()}</span>
+                        <h2 class="name">${s.name}</h2>
+                        <p>${s.specialty}</p>
+                        <div class="price"><b>${s.hourly_rate}</b> грн/год</div>
+                        <a href="https://t.me/${s.telegram_id}" class="btn">Написати</a>
+                    </div>`;
+            }).join('');
+        }
+
+        function filterNiche(niche) {
+            // Візуальний ефект кнопок
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (niche === 'all') {
+                render(allData);
+            } else {
+                const filtered = allData.filter(s => s.niche.toLowerCase().includes(niche));
+                render(filtered);
+            }
+        }
+
+        load();
+    </script>
+</body>
+</html>

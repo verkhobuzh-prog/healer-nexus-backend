@@ -1,0 +1,5 @@
+body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+nav { background: #1e293b; padding: 15px; border-radius: 10px; margin-bottom: 20px; width: 100%; max-width: 800px; display: flex; justify-content: space-around; }
+a { color: #38bdf8; text-decoration: none; font-weight: bold; padding: 10px 20px; border: 1px solid #38bdf8; border-radius: 5px; transition: 0.3s; }
+a:hover { background: #38bdf8; color: #0f172a; }
+.card { background: #1e293b; padding: 20px; border-radius: 10px; margin: 10px; width: 300px; border: 1px solid #334155; }

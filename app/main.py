@@ -1,0 +1,67 @@
+import logging
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from app.database.connection import init_db
+from app.api.chat import router as chat_router
+from app.api.specialists import router as specialists_router
+from app.config import settings
+
+# 1. Налаштування логування (ЗАВЖДИ ВГОРІ)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="Healer Nexus Platform",
+    description="Платформа для цілителів, коучів, вчителів та дизайнерів",
+    version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup():
+    # Важливо: цей код має бути з відступом (4 пробіли)
+    await init_db()
+    if settings.GEMINI_API_KEY:
+        logger.info(f"✅ Gemini Key loaded: {settings.GEMINI_API_KEY[:5]}***")
+    else:
+        logger.error("❌ GEMINI_API_KEY IS MISSING!")
+    logger.info("✅ База даних готова та синхронізована")
+
+# 2. Реєстрація API маршрутів
+app.include_router(chat_router, prefix="/api", tags=["Chat"])
+app.include_router(specialists_router, prefix="/api", tags=["Specialists"])
+
+# 3. Ендпоінти здоров'я та статики
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "platform": "Healer Nexus"}
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return FileResponse("app/static/index.html")
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard():
+    return FileResponse("app/static/dashboard.html")
+
+@app.get("/tracker", include_in_schema=False)
+async def tracker():
+    return FileResponse("app/static/tracker.html")
+
+@app.get("/admin", include_in_schema=False)
+async def admin():
+    return FileResponse("app/static/admin.html")
+
+# Монтування статики
+app.mount("/static", StaticFiles(directory="app/static"), name="static")

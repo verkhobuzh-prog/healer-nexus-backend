@@ -1,0 +1,11 @@
+# Telegram Bot dependencies (ISOLATED)
+python-telegram-bot==20.7
+# This automatically installs httpx~=0.25.2
+
+# Shared utilities (compatible versions)
+pydantic==2.9.2
+pydantic-settings==2.6.1
+aiohttp==3.10.11  # For internal API calls (not httpx)
+
+# Logging
+python-json-logger==3.2.1
