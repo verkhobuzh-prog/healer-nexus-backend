@@ -16,11 +16,14 @@ async_session_maker = async_sessionmaker(
 
 async def init_db():
     """Ініціалізація бази даних"""
-    # Імпортуємо всі моделі
+    # Імпортуємо всі моделі для create_all
     from app.models.user import User
     from app.models.message import Message
     from app.models.specialist import Specialist
-    
+    from app.models.specialist_content import SpecialistContent
+    from app.models.conversation import Conversation
+    from app.models.knowledge_base import KnowledgeBase
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     

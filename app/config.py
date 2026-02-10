@@ -8,9 +8,13 @@ BASE_DIR = Path(__file__).parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 class Settings(BaseSettings):
+    """Multi-project: one codebase, PROJECT_ID per instance (e.g. healer_nexus, eco-pulse)."""
+    PROJECT_ID: str = "healer_nexus"
     GEMINI_API_KEY: str
     DATABASE_URL: str = "sqlite+aiosqlite:///./healer.db"
     TELEGRAM_BOT_TOKEN: str = ""
+    HEALER_SPECIALIST_BOT_TOKEN: str = ""
+    HEALER_CONSUMER_BOT_TOKEN: str = ""
     ADMIN_CHAT_ID: str = ""
     DEBUG: bool = False
     

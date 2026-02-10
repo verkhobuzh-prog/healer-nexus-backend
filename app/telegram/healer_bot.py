@@ -12,7 +12,16 @@ from app.ai.providers import get_ai_provider
 
 class HealerNexusBot:
     def __init__(self):
-        self.app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+        # Timeouts for stable connection (avoid TimedOut after 5+ min idle)
+        self.app = (
+            Application.builder()
+            .token(settings.TELEGRAM_BOT_TOKEN)
+            .connect_timeout(30)
+            .read_timeout(60)
+            .write_timeout(30)
+            .pool_timeout(30)
+            .build()
+        )
         self.current_role = {}
 
     async def get_or_create_user(self, session, tg_user):

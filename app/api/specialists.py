@@ -34,6 +34,8 @@ class SpecialistCreate(SpecialistBase):
 class SpecialistResponse(SpecialistBase):
     """Схема відповіді"""
     id: int
+    service_type: str
+    service_types: Optional[List[str]] = None
     is_verified: bool
     is_active: bool
     telegram_id: Optional[int] = None
@@ -41,6 +43,8 @@ class SpecialistResponse(SpecialistBase):
     is_ai_powered: bool
     ai_model: Optional[str] = None
     ai_capabilities: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Ендпоінти ---
 

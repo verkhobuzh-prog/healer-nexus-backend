@@ -1,0 +1,429 @@
+# Healer Nexus Ecosystem — Cursor IDE Rules
+# Multi-Project Modular Monolith Architecture
+
+## 🏗️ CORE ARCHITECTURE PRINCIPLE
+This is a **Multi-Project Modular Monolith**, NOT microservices.
+
+**What this means:**
+- ONE codebase: `healer-backend/`
+- MULTIPLE projects inside: healer_nexus (current), eco-pulse (future), admin-market (future)
+- Integration layer: event_bus (Redis) + module_registry
+- Self-healing system: resilience/self_heal.py
+- Shared infrastructure: database, auth, AI providers
+
+**Why Monolith?**
+- Easier debugging (single codebase)
+- Shared code reuse (models, utils)
+- Single deployment unit
+- EventBus simplifies integration
+- Lower operational complexity
+
+---
+
+## 🚫 STRICT PROHIBITIONS (never suggest without explicit approval)
+
+### ❌ Architecture Anti-Patterns:
+- Split into separate repositories
+- "Create admin-agent as a standalone microservice"
+- Docker Compose with multiple FastAPI services
+- Suggest "moving admin_bot to its own project"
+- Remove admin_bot from healer-backend structure
+- Create separate databases for different "projects"
+
+### ❌ Code Anti-Patterns:
+- Relative imports (use `from app.models` NOT `from .models`)
+- Using `niche` field name (ALWAYS use `service_type`)
+- Sync SQLAlchemy (ONLY async: AsyncSession, asyncio)
+- Multiple config sources (app/config.py is source of truth)
+- Hardcoded project IDs (use settings.PROJECT_ID)
+
+### ❌ Database Anti-Patterns:
+- CASCADE in SQLite (not supported, causes errors)
+- Sync db.execute() without await
+- Creating connection outside async_session_maker
+- Forgetting project_id filter in queries
+
+---
+
+## ✅ CORRECT ARCHITECTURAL PATTERNS
+
+### Database Rules:
+```python
+# ✅ CORRECT: Async SQLAlchemy + aiosqlite
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database.connection import async_session_maker
+
+async with async_session_maker() as session:
+    result = await session.execute(select(User))
+
+# ✅ WAL mode enabled for SQLite (check connection.py)
+# ✅ Single session maker for entire ecosystem
+# ✅ project_id column in all tables for multi-project support
+
+# ❌ WRONG: Sync SQLAlchemy
+db.execute(select(User))  # Missing await!
+
+# ❌ WRONG: CASCADE in SQLite
+ForeignKey("users.id", ondelete="CASCADE")  # Use ondelete="SET NULL" or manual deletion
+```
+
+### Naming Conventions:
+```python
+# ✅ CORRECT: service_type
+specialist = Specialist(service_type="healer")
+query = select(Specialist).where(Specialist.service_type == "healer")
+
+# ❌ WRONG: niche (legacy field name)
+specialist = Specialist(niche="healer")  # NEVER USE THIS
+```
+
+### Import Rules:
+```python
+# ✅ CORRECT: Absolute imports from app.
+from app.models.user import User
+from app.core.module_registry import get_registry
+from app.ai.providers import get_ai_provider
+
+# ❌ WRONG: Relative imports
+from .models.user import User
+from ..core.module_registry import get_registry
+```
+
+### Config Hierarchy:
+```python
+# ✅ CORRECT: app/config.py is source of truth
+from app.config import settings
+DATABASE_URL = settings.DATABASE_URL
+
+# ⚠️ ACCEPTABLE: app/core/config.py is a proxy (re-exports)
+# But ALWAYS prefer app/config.py directly
+
+# ❌ WRONG: Multiple config sources
+from app.core.config import settings  # Unless it's a proxy
+```
+
+### Bot Integration:
+```python
+# ✅ CORRECT: Separate tokens, integrated via event_bus
+healer_bot = HealerNexusBot(token=settings.HEALER_BOT_TOKEN)
+admin_bot = AdminBot(token=settings.ADMIN_BOT_TOKEN)
+
+# Communication via event_bus
+await event_bus.emit("user_action", {"user_id": 123, "action": "chat"})
+
+# ✅ Both run in SAME process (bot_runner.py)
+# ❌ WRONG: Suggesting separate services for bots
+```
+
+---
+
+## 📁 KEY FILES (always reference in context)
+
+### Core Infrastructure:
+- `app/main.py` — Single FastAPI entry point (ONE uvicorn process)
+- `app/config.py` — Source of truth for all settings (PROJECT_ID, tokens, DB URL)
+- `app/database/connection.py` — Single async_session_maker, WAL mode
+
+### Telegram Ecosystem:
+- `app/telegram/healer_bot.py` — User-facing bot (separate token, lightweight)
+- `app/telegram/admin_bot.py` — Admin "captain's bridge" (separate token, full access)
+- `app/telegram/bot_runner.py` — Orchestrator (runs both bots in threads)
+
+### Multi-Project Core:
+- `app/core/module_registry.py` — Multi-project orchestrator, health tracking
+- `app/core/event_bus.py` — Integration backbone (Redis Pub/Sub planned)
+
+### Resilience Layer:
+- `app/resilience/self_heal.py` — Auto-recovery (CRITICAL, always preserve)
+- `app/resilience/safe_mode.py` — AI fallback to specialist search
+
+### AI Integration:
+- `app/ai/providers.py` — Gemini integration, model: gemini-1.5-flash (NOT 2.0-flash-exp)
+- `app/ai/self_reflection.py` — User state analysis
+
+### Database:
+- `app/models/*.py` — All models have project_id column
+- `alembic/versions/*.py` — Migrations (SQLite-compatible, NO CASCADE)
+
+---
+
+## 🎯 DEVELOPMENT PHASES (context for suggestions)
+
+### Phase 1: Foundation (CURRENT)
+**Status:** 90% complete
+- ✅ healer_bot (user chat, AI, limits)
+- ✅ admin_bot (monitoring stub)
+- ✅ event_bus (stub, Redis planned)
+- ✅ self_heal (auto-recovery)
+- ✅ module_registry (multi-project ready)
+- ⚠️ Fix: Gemini model version, available_specialists
+
+### Phase 2: Marketplace (NEXT — 3-6 months)
+**Goal:** Rent Admin Agents to clients
+- [ ] Agent Factory (dynamic bot creation from DB)
+- [ ] Tenant Manager (client → N agents mapping)
+- [ ] Template Engine (role = system_prompt + tools from DB)
+- [ ] Usage Tracking (count requests/tokens per agent for billing)
+- [ ] Real-time Dashboard (Top Active Agents, load monitoring)
+
+### Phase 3: Scaling (FUTURE — 6-12 months)
+- [ ] Redis Event Bus (replace stub)
+- [ ] Blue-Green Deployment
+- [ ] Canary Rollouts via Registry
+- [ ] Advanced self-healing (ML-based anomaly detection)
+
+---
+
+## 🤖 BOT ARCHITECTURE RULES
+
+### Two Separate Bots (different tokens):
+```python
+# healer_bot.py — User-facing
+- Token: TELEGRAM_BOT_TOKEN (from .env)
+- Purpose: Chat, specialist search, AI responses
+- Scope: Lightweight, fast, no admin features
+- Rate limits: Per-user (requests_left field)
+
+# admin_bot.py — Captain's bridge
+- Token: ADMIN_BOT_TOKEN (from .env)
+- Purpose: System monitoring, metrics, control
+- Scope: Full DB access, all projects visibility
+- Rate limits: None (admin only)
+```
+
+### Why Separate Tokens?
+✅ **Independence:** Each bot has own Telegram rate limits
+✅ **Security:** User can't trigger admin commands by accident
+✅ **Updates:** Can restart healer_bot without stopping admin panel
+✅ **Roles:** Clear separation of concerns
+
+### Communication Pattern:
+```python
+# healer_bot emits event
+@with_self_heal
+async def handle_user_message(update, context):
+    response = await ai.generate_response(message)
+    await event_bus.emit("user_interaction", {
+        "user_id": user.id,
+        "project_id": "healer_nexus",
+        "message": message,
+        "response": response
+    })
+
+# admin_bot listens
+@event_bus.subscribe("user_interaction")
+async def track_interaction(data):
+    await metrics.increment("healer_nexus.interactions")
+    await check_system_health()
+```
+
+---
+
+## 📊 DATABASE ARCHITECTURE
+
+### Single Database, Multi-Project:
+```sql
+-- All tables have project_id
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    project_id VARCHAR(50) NOT NULL DEFAULT 'healer_nexus',
+    ...
+);
+
+-- Queries ALWAYS filter by project_id
+SELECT * FROM specialists 
+WHERE project_id = 'healer_nexus' AND is_active = TRUE;
+```
+
+### Why Single DB?
+✅ **Simplicity:** One connection pool, one backup strategy
+✅ **Transactions:** Can update multiple projects atomically
+✅ **Joins:** Easy to aggregate cross-project stats
+✅ **Cost:** One database instance, not N
+
+### Async Pattern:
+```python
+# ✅ ALWAYS async
+async with async_session_maker() as session:
+    result = await session.execute(
+        select(Specialist).where(
+            Specialist.project_id == settings.PROJECT_ID,
+            Specialist.service_type == "healer"
+        )
+    )
+    specialists = result.scalars().all()
+```
+
+---
+
+## 🔄 SELF-HEALING (CRITICAL FEATURE)
+
+### Always Preserve:
+```python
+# Wrap critical async functions
+@with_self_heal
+async def run_healer_bot():
+    await healer_bot.start_polling()
+
+# Registers restart handlers
+register_restart_handler(async_restart_ai_client)
+register_restart_handler(async_restart_db_pool)
+
+# On AssertionError → run handlers → re-raise
+```
+
+### Why Critical?
+✅ **Availability:** Bot restarts on Telegram timeout
+✅ **Resilience:** AI falls back to specialist search on 404
+✅ **Trust:** Users don't see "bot offline" errors
+
+### Never Suggest:
+❌ Removing `@with_self_heal` decorators
+❌ "Let the container orchestrator handle restarts" (we're not using k8s)
+❌ Replacing with try/except without restart logic
+
+---
+
+## 🚀 DEPLOYMENT STRATEGY
+
+### Blue-Green (Planned for Phase 2):
+```python
+# Registry marks modules as "blue" or "green"
+registry.mark_canary("healer_nexus.healer_bot", version="v2.0")
+
+# event_bus coordinates switchover
+await event_bus.emit("deployment.canary_start", {
+    "project_id": "healer_nexus",
+    "module": "healer_bot",
+    "version": "v2.0"
+})
+
+# Health checks before full rollout
+if canary_healthy():
+    await event_bus.emit("deployment.promote_canary")
+```
+
+### Zero-Downtime Requirements:
+- [ ] Pre-flight health checks (module.health_check())
+- [ ] Event-driven lifecycle (event_bus.emit("shutdown"))
+- [ ] Graceful bot shutdown (stop_polling() before restart)
+- [ ] Database migration compatibility (backwards + forwards)
+
+---
+
+## 🔧 WHEN SUGGESTING CODE
+
+### Checklist Before Response:
+1. ✅ Does it fit Multi-Project Modular Monolith pattern?
+2. ✅ Does it use async SQLAlchemy (AsyncSession, await)?
+3. ✅ Does it integrate via event_bus (not direct imports)?
+4. ✅ Does it preserve self_heal in critical paths?
+5. ✅ Does it use service_type (not niche)?
+6. ✅ Does it use absolute imports (from app.)?
+7. ✅ Does it filter by project_id in queries?
+
+### Template for Responses:
+```
+This integrates with the existing Healer Nexus Ecosystem via:
+- Module: [which module this extends]
+- Integration: [event_bus / Registry / direct API]
+- Database: [uses async_session_maker, filters by project_id]
+- Self-healing: [wrapped in @with_self_heal if critical]
+
+[YOUR CODE HERE]
+
+Testing:
+[How to verify this works in the monolith]
+```
+
+---
+
+## 📚 COMMON SCENARIOS
+
+### Adding a New Project (e.g., eco-pulse):
+```python
+# 1. Add to module_registry.py
+registry.register_child_project("eco_pulse")
+
+# 2. Create module in app/modules/eco_pulse_module.py
+class EcoPulseModule(BaseModule):
+    def __init__(self):
+        super().__init__("eco_pulse")
+    
+    async def health_check(self):
+        # Check eco-pulse specific health
+        ...
+
+# 3. Register in lifespan (main.py)
+registry.register(EcoPulseModule())
+
+# 4. Database uses project_id="eco_pulse" automatically
+# No new database needed!
+```
+
+### Adding a Feature to Admin Bot:
+```python
+# ✅ CORRECT: Extend admin_bot.py
+@admin_app.message_handler(commands=["system_status"])
+async def system_status(update, context):
+    registry = get_registry()
+    status = await registry.get_all_projects_status()
+    await update.message.reply_text(format_status(status))
+
+# ❌ WRONG: "Let's create admin-dashboard service"
+# NO! Keep it in admin_bot.py, it's part of the monolith
+```
+
+### Debugging "Cursor is confused":
+If Cursor suggests splitting or creating new services:
+
+**Say:** "Remember: Healer Nexus is a Multi-Project Modular Monolith. This feature should be added as a module in `app/`, not a separate service. How can we integrate this via event_bus or Registry?"
+
+---
+
+## 🎓 LEARNING RESOURCES (for Cursor context)
+
+### Multi-Project Modular Monolith Pattern:
+- Single codebase, multiple logical projects
+- Shared infrastructure (DB, auth, logging)
+- Communication via event bus (not HTTP)
+- Examples: Shopify (Ruby monolith), GitHub (Rails monolith)
+
+### Why Not Microservices Yet:
+- Team size: 1-2 developers (not 20+)
+- Complexity: Distributed tracing, service mesh overhead
+- Cost: N databases, N deployments, N monitoring
+- Speed: Faster development in monolith phase
+
+### When to Split (not now, but Phase 4+):
+- Team grows to 10+ developers
+- One project has drastically different scaling needs
+- Regulatory requirements (separate audit trails)
+- Performance profiling shows clear bottleneck
+
+---
+
+## ✅ FINAL REMINDERS
+
+**Before Every Response:**
+1. Read this .cursorrules file
+2. Check: Am I suggesting a new service? (probably wrong)
+3. Check: Does this integrate with event_bus / Registry?
+4. Check: Am I using async/await everywhere?
+5. Check: Am I preserving self_heal?
+
+**When in Doubt:**
+- Default to adding modules to app/ structure
+- Default to extending existing files over creating new services
+- Default to event_bus for communication
+- Ask: "Does this fit the Multi-Project Modular Monolith pattern?"
+
+**Emergency Override:**
+If user explicitly says "ignore monolith pattern for this task", then proceed with their request. But always confirm first.
+
+---
+
+**Version:** 1.0.0  
+**Last Updated:** 2026-02-05  
+**Maintained by:** Healer Nexus Team  
+**Questions?** Reference ARCHITECTURE.md for detailed design docs

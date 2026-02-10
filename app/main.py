@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database.connection import init_db
 from app.api.chat import router as chat_router
 from app.api.specialists import router as specialists_router
+from app.api.content import router as content_router
+from app.api.admin_brain import router as admin_brain_router
 from app.config import settings
 
 # 1. Налаштування логування (ЗАВЖДИ ВГОРІ)
@@ -39,8 +41,10 @@ async def startup():
     logger.info("✅ База даних готова та синхронізована")
 
 # 2. Реєстрація API маршрутів
-app.include_router(chat_router, prefix="/api", tags=["Chat"])
-app.include_router(specialists_router, prefix="/api", tags=["Specialists"])
+app.include_router(chat_router, prefix="/api")
+app.include_router(specialists_router, prefix="/api")
+app.include_router(content_router, prefix="/api")
+app.include_router(admin_brain_router, prefix="/api")
 
 # 3. Ендпоінти здоров'я та статики
 @app.get("/api/health")

@@ -16,6 +16,14 @@ class Specialist(Base, TimestampMixin):
         index=True,
         comment="healer | coach | teacher_math | interior_designer | 3d_modeling | web_development"
     )
+    
+    # ✅ НОВЕ поле
+    service_types: Mapped[list] = mapped_column(
+        JSON,
+        nullable=True,
+        default=list,
+        comment='["healer", "meditation"] - список ніш'
+    )
 
     # ✅ Метод доставки послуги
     delivery_method: Mapped[str] = mapped_column(

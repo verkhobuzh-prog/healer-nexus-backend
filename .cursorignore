@@ -1,0 +1,4 @@
+﻿legacy/
+venv/
+__pycache__/
+legacy_backend_DO_NOT_USE/
