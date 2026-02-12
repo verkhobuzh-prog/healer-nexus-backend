@@ -46,6 +46,18 @@ class SpecialistResponse(SpecialistBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class SpecialistUpdate(BaseModel):
+    """Схема оновлення — усі поля опційні; hourly_rate > 0 якщо передано."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    service_types: Optional[List[str]] = None
+    hourly_rate: Optional[int] = Field(None, gt=0)
+    bio: Optional[str] = None
+    specialty: Optional[str] = Field(None, max_length=200)
+    delivery_method: Optional[str] = Field(None, description="human | ai_assisted | fully_ai")
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- Ендпоінти ---
 
 @router.post("/specialists", response_model=SpecialistResponse, status_code=201)
@@ -74,3 +86,37 @@ async def get_specialists(
     
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.put("/specialists/{specialist_id}", response_model=SpecialistResponse)
+async def update_specialist(
+    specialist_id: int,
+    data: SpecialistUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Оновлення спеціаліста (лише передані поля)."""
+    result = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
+    specialist = result.scalar_one_or_none()
+    if not specialist:
+        raise HTTPException(status_code=404, detail="Specialist not found")
+    payload = data.model_dump(exclude_unset=True)
+    for key, value in payload.items():
+        setattr(specialist, key, value)
+    await db.commit()
+    await db.refresh(specialist)
+    return specialist
+
+
+@router.delete("/specialists/{specialist_id}")
+async def delete_specialist(
+    specialist_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """М’яке видалення: is_active = False."""
+    result = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
+    specialist = result.scalar_one_or_none()
+    if not specialist:
+        raise HTTPException(status_code=404, detail="Specialist not found")
+    specialist.is_active = False
+    await db.commit()
+    return {"message": "Specialist deactivated", "id": specialist_id}
