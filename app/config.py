@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from pydantic import Field
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     HEALER_SPECIALIST_BOT_TOKEN: str = ""
     HEALER_CONSUMER_BOT_TOKEN: str = ""
     ADMIN_CHAT_ID: str = ""
+    BASE_URL: str = Field(default="http://localhost:8000", env="BASE_URL")
     DEBUG: bool = False
     
     class Config:

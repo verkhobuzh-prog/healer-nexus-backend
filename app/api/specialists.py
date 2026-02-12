@@ -24,8 +24,16 @@ class SpecialistBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class SpecialistCreate(SpecialistBase):
-    """Схема створення - ✅ ПОВНІСТЮ БЕЗ niche"""
-    telegram_id: Optional[int] = Field(None, description="Підтримує великі ID (BigInteger)")
+    """
+    Схема створення - ✅ ПОВНІСТЮ БЕЗ niche
+    ✅ FIX #1: telegram_id тепер None за замовчуванням (не 0), щоб уникнути UNIQUE constraint
+    """
+    telegram_id: Optional[int] = Field(
+        None,
+        ge=1,
+        examples=[123456789, None],
+        description="Підтримує великі ID (BigInteger). Must be positive or null."
+    )
     portfolio_url: Optional[str] = None
     is_ai_powered: bool = Field(default=False)
     ai_model: Optional[str] = None
@@ -88,6 +96,26 @@ async def get_specialists(
     return result.scalars().all()
 
 
+@router.get("/specialists/{specialist_id}", response_model=SpecialistResponse)
+async def get_specialist_by_id(
+    specialist_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    ✅ FIX #3: Додано GET endpoint для отримання одного спеціаліста за ID
+    Повертає 404 якщо спеціаліст не знайдений
+    """
+    result = await db.execute(
+        select(Specialist).where(Specialist.id == specialist_id)
+    )
+    specialist = result.scalar_one_or_none()
+    
+    if not specialist:
+        raise HTTPException(status_code=404, detail="Specialist not found")
+    
+    return specialist
+
+
 @router.put("/specialists/{specialist_id}", response_model=SpecialistResponse)
 async def update_specialist(
     specialist_id: int,
@@ -112,7 +140,7 @@ async def delete_specialist(
     specialist_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    """М’яке видалення: is_active = False."""
+    """М'яке видалення: is_active = False."""
     result = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
     specialist = result.scalar_one_or_none()
     if not specialist:

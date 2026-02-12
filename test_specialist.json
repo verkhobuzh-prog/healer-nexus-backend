@@ -1,0 +1,8 @@
+﻿{
+  "name": "Olena Healer",
+  "service_type": "healer",
+  "specialty": "Energy healing",
+  "hourly_rate": 800,
+  "delivery_method": "human",
+  "bio": "Experienced healer"
+}

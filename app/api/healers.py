@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from database.connection import get_db
+from app.database.connection import get_db
 from app.models.healer import Healer
 from typing import List
 

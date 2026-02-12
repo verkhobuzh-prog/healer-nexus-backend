@@ -1,5 +1,5 @@
-from google import genai
-from google.genai.types import GenerateContentConfig, SafetySetting, HarmCategory, HarmBlockThreshold
+import asyncio
+import google.generativeai as genai
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
@@ -13,10 +13,8 @@ logger = logging.getLogger(__name__)
 class GeminiProvider:
     def __init__(self):
         try:
-            self.client = genai.Client(
-                api_key=settings.GEMINI_API_KEY,
-                http_options={'api_version': 'v1beta'}
-            )
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
             logger.info("✅ Gemini client initialized")
         except Exception as e:
             logger.error(f"❌ Gemini init failed: {e}")
@@ -35,7 +33,7 @@ class GeminiProvider:
         """
         
         # 1. Self-reflection analysis
-        detected_service, confidence = reflection_engine.detect_niche(message)
+        detected_service, confidence = reflection_engine.detect_service(message)
         user_intent = reflection_engine.classify_intent(message)
         anxiety_score = reflection_engine.calculate_anxiety_score(message)
         
@@ -146,37 +144,9 @@ class GeminiProvider:
             context += f"{msg['role']}: {msg['content']}\n"
         context += f"user: {message}\nassistant:"
         
-        # Safety settings
-        safety_settings = [
-            SafetySetting(category=cat, threshold=HarmBlockThreshold.BLOCK_NONE)
-            for cat in [
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                HarmCategory.HARM_CATEGORY_HARASSMENT,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT
-            ]
-        ]
-        
-        config = GenerateContentConfig(
-            temperature=0.7,
-            max_output_tokens=500,
-            safety_settings=safety_settings
-        )
-        
         try:
-            response = await self.client.aio.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=context,
-                config=config
-            )
-            
-            if hasattr(response, 'text'):
-                return response.text
-            elif hasattr(response, 'candidates') and response.candidates:
-                return response.candidates[0].content.parts[0].text
-            else:
-                raise ValueError("Empty Gemini response")
-                
+            response = await asyncio.to_thread(self.model.generate_content, context)
+            return response.text
         except Exception as e:
             error_msg = str(e)
             logger.error(f"❌ GEMINI API ERROR: {error_msg}")

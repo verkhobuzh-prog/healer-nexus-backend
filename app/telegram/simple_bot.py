@@ -28,8 +28,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Обробка натискання кнопки "Цілителі"
     if text == "🧘 Цілителі":
-        # Тут ми могли б зробити запит до вашого API
-        await update.message.reply_text("🧘 У нас є чудові фахівці!\n\nНаприклад:\n- Олена (Йога)\n\nВи можете знайти їх на сайті: http://172.19.209.155:8000")
+        site_url = getattr(settings, "BASE_URL", None) or "http://localhost:8000"
+        await update.message.reply_text(
+            f"🧘 У нас є чудові фахівці!\n\nНаприклад:\n- Олена (Йога)\n\nВи можете знайти їх на сайті: {site_url}"
+        )
         return
 
     # Логіка AI-відповіді
