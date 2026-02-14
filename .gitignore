@@ -2,15 +2,25 @@
 __pycache__/
 *.py[cod]
 venv/
-# ?????? ?? ??????
+backend/venv/
+
+# Archives and backups
 *.tar.gz
 *.bak
-backups/
-healer_nexus_backup_STABLE.db
-# ????
+project_backup_*/
+structure_cleanup_*/
+
+# Logs
 logs/
-# ??????? ?? ??
+backend/logs/
+
+# Secrets and DB
 .env
+backend/.env
 *.db
-# ??????? ?????
+backend/your_db.sqlite
+backups/
+healer_nexus_backup_STABLE.dbІ
+
+# Test files
 test_chat_*.json
