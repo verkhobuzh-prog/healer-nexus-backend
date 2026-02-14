@@ -5,7 +5,13 @@ from app.models.base import Base  # ✅ Імпорт Base
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
-    future=True
+    future=True,
+    connect_args=(
+        {"check_same_thread": False, "timeout": 30}
+        if "sqlite" in settings.DATABASE_URL.lower()
+        else {}
+    ),
+    pool_pre_ping=True,
 )
 
 async_session_maker = async_sessionmaker(

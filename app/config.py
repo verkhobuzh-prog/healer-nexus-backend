@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """Multi-project: one codebase, PROJECT_ID per instance (e.g. healer_nexus, eco-pulse)."""
     PROJECT_ID: str = "healer_nexus"
     GEMINI_API_KEY: str
-    DATABASE_URL: str = "sqlite+aiosqlite:///./healer.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./healer.db?charset=utf8"
     TELEGRAM_BOT_TOKEN: str = ""
     HEALER_SPECIALIST_BOT_TOKEN: str = ""
     HEALER_CONSUMER_BOT_TOKEN: str = ""

@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator # У Pydantic v2 викорис�
 import logging
 
 from app.ai.providers import get_ai_provider
+from app.ai.prompts import ETHICAL_DISCLAIMER_FOR_RESPONSE
 from app.services.db_service import save_message, get_history
 from app.database.connection import get_db
 from app.resilience.safe_mode import (
@@ -58,13 +59,36 @@ async def chat_endpoint(
         
         # 3. Зберігаємо листування
         await save_message(request.user_id, "user", request.message)
-        await save_message(request.user_id, "assistant", result["text"])
-        
-        # 4. Повертаємо результат з розпакованими метаданими (success)
+        response_text = (result["text"] or "").rstrip()
+        # Strip any disclaimer Gemini echoed (avoid x2 or x3), then add once
+        disclaimer_text = ETHICAL_DISCLAIMER_FOR_RESPONSE.strip()
+        while disclaimer_text and response_text.endswith(disclaimer_text):
+            response_text = response_text[: -len(disclaimer_text)].rstrip()
+        if disclaimer_text:
+            response_text += ETHICAL_DISCLAIMER_FOR_RESPONSE
+        await save_message(request.user_id, "assistant", response_text)
+
+        # 4. Fix encoding for specialist names (SQLite may return bytes for Ukrainian text)
+        specialists_fixed = []
+        for spec in result["metadata"].get("top_specialists", []):
+            spec_copy = dict(spec)
+            if spec_copy.get("name"):
+                name = spec_copy["name"]
+                if isinstance(name, bytes):
+                    spec_copy["name"] = name.decode("utf-8", errors="replace")
+                elif isinstance(name, str):
+                    spec_copy["name"] = name
+            if spec_copy.get("specialty"):
+                val = spec_copy["specialty"]
+                if isinstance(val, bytes):
+                    spec_copy["specialty"] = val.decode("utf-8", errors="replace")
+            specialists_fixed.append(spec_copy)
+
+        metadata = {**result["metadata"], "top_specialists": specialists_fixed}
         return {
-            "response": result["text"],
+            "response": response_text,
             "status": "success",
-            **result["metadata"]
+            **metadata
         }
         
     except Exception as e:

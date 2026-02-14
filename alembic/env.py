@@ -14,6 +14,7 @@ from app.models.specialist import Specialist  # noqa: F401
 from app.models.healer import Healer  # noqa: F401
 from app.models.conversation import Conversation  # noqa: F401
 from app.models.specialist_content import SpecialistContent  # noqa: F401
+from app.models.practitioner_profile import PractitionerProfile  # noqa: F401
 
 logger = logging.getLogger("alembic.env")
 config = context.config

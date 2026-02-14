@@ -23,4 +23,19 @@ backups/
 healer_nexus_backup_STABLE.dbІ
 
 # Test files
-test_chat_*.json
+test_chat_*.json# Test files
+test*.json
+test*.py
+fix_*.py
+seed_*.py
+analysis.txt
+# Data files
+data/*.json
+*.db
+*.db-journal
+# Python
+__pycache__/
+*.pyc
+*.pyo
+# Logs
+*.log
