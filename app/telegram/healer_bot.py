@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from sqlalchemy import select
@@ -10,18 +11,47 @@ from app.models.user import User
 from app.models.message import Message
 from app.ai.providers import get_ai_provider
 
+logger = logging.getLogger(__name__)
+
+
 class HealerNexusBot:
     def __init__(self):
-        # Timeouts for stable connection (avoid TimedOut after 5+ min idle)
-        self.app = (
-            Application.builder()
-            .token(settings.TELEGRAM_BOT_TOKEN)
-            .connect_timeout(30)
-            .read_timeout(60)
-            .write_timeout(30)
-            .pool_timeout(30)
-            .build()
-        )
+        if not settings.TELEGRAM_BOT_TOKEN:
+            raise ValueError("TELEGRAM_BOT_TOKEN not set in .env")
+
+        proxy_url = getattr(settings, "TELEGRAM_PROXY", None) or ""
+
+        if proxy_url:
+            # Proxy mode: create HTTPXRequest with timeouts built-in
+            from telegram.request import HTTPXRequest
+            request = HTTPXRequest(
+                proxy=proxy_url,
+                connection_pool_size=8,
+                connect_timeout=30.0,
+                read_timeout=60.0,
+                write_timeout=30.0,
+                pool_timeout=30.0,
+            )
+            self.application = (
+                Application.builder()
+                .token(settings.TELEGRAM_BOT_TOKEN)
+                .request(request)
+                .build()
+            )
+            logger.info("✅ Using proxy: %s", proxy_url)
+        else:
+            # No proxy: use builder timeouts
+            self.application = (
+                Application.builder()
+                .token(settings.TELEGRAM_BOT_TOKEN)
+                .connect_timeout(30)
+                .read_timeout(60)
+                .write_timeout(30)
+                .pool_timeout(30)
+                .build()
+            )
+
+        self.db_session_maker = async_session_maker
         self.current_role = {}
 
     async def get_or_create_user(self, session, tg_user):
@@ -126,38 +156,43 @@ class HealerNexusBot:
                     for m in reversed(messages)
                 ]
                 
-                # AI відповідь
+                # AI відповідь (generate_response повертає dict з "text" та "metadata")
                 ai = get_ai_provider()
-                response = await ai.generate_response(user_text, history, role)
-                
+                result = await ai.generate_response(
+                    user_text, history, role,
+                    user_id=user.id,
+                    db=session,
+                )
+                response_text = result["text"]
+
                 # Зберігаємо в БД
                 user_msg = Message(user_id=user.id, role="user", content=user_text)
-                ai_msg = Message(user_id=user.id, role="assistant", content=response)
+                ai_msg = Message(user_id=user.id, role="assistant", content=response_text)
                 session.add(user_msg)
                 session.add(ai_msg)
-                
+
                 # Оновлюємо лічильники
                 if not is_admin:
                     user.requests_left -= 1
                 user.total_requests += 1
-                
+
                 await session.commit()
 
                 # Відповідь користувачу
                 suffix = f"\n\n<i>Залишилось: {user.requests_left}</i>" if not is_admin else ""
-                await update.message.reply_text(f"{response}{suffix}", parse_mode="HTML")
+                await update.message.reply_text(f"{response_text}{suffix}", parse_mode="HTML")
                 
             except Exception as e:
                 await update.message.reply_text(f"❌ Помилка: {str(e)}")
 
     def run(self):
         """Запуск бота"""
-        self.app.add_handler(CommandHandler("start", self.start))
-        self.app.add_handler(CallbackQueryHandler(self.button_callback))
-        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         
         print("🚀 Healer Nexus Bot запущено з лімітами")
-        self.app.run_polling(allowed_updates=Update.ALL_TYPES)
+        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     bot = HealerNexusBot()

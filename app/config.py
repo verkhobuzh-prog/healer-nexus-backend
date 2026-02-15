@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     DATABASE_URL: str = "sqlite+aiosqlite:///./healer.db?charset=utf8"
     TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_PROXY: str = ""  # e.g. socks5://user:pass@host:port or socks5://127.0.0.1:1080
     HEALER_SPECIALIST_BOT_TOKEN: str = ""
     HEALER_CONSUMER_BOT_TOKEN: str = ""
     ADMIN_CHAT_ID: str = ""
