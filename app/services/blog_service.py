@@ -347,6 +347,11 @@ class BlogService:
             post.meta_description = (plain[:497] + "…") if len(plain) > 500 else plain
         await self.session.commit()
         await self.session.refresh(post)
+        try:
+            from app.services.blog_publish_notifier import notify_post_published
+            await notify_post_published(self.session, post)
+        except Exception:
+            pass
         return post
 
     async def unpublish_post(self, post_id: int, practitioner_id: int) -> Optional[BlogPost]:
@@ -407,11 +412,13 @@ class BlogService:
         """Find posts where status=SCHEDULED and scheduled_at <= now(), publish each. Commits per post."""
         now = datetime.now(timezone.utc)
         r = await self.session.execute(
-            select(BlogPost).where(
+            select(BlogPost)
+            .where(
                 BlogPost.project_id == self.project_id,
                 BlogPost.status == PostStatus.SCHEDULED.value,
                 BlogPost.scheduled_at <= now,
             )
+            .options(selectinload(BlogPost.tags))
         )
         posts = list(r.scalars().all())
         count = 0
@@ -422,6 +429,11 @@ class BlogService:
                 post.scheduled_at = None
                 await self.session.commit()
                 count += 1
+                try:
+                    from app.services.blog_publish_notifier import notify_post_published
+                    await notify_post_published(self.session, post)
+                except Exception:
+                    pass
             except Exception:
                 await self.session.rollback()
         return count

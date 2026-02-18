@@ -42,6 +42,7 @@ class PractitionerProfile(Base, TimestampMixin):
     unique_story: Mapped[str | None] = mapped_column(Text, nullable=True)
     soft_cta_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
     contact_link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    telegram_channel_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     creator_signature: Mapped[str] = mapped_column(
         String(255), default="Створено з ❤️ на платформі Healer Nexus", nullable=False
     )
