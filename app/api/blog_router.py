@@ -21,6 +21,7 @@ from app.schemas.blog import (
     BlogPostListResponse,
     AIGenerateDraftRequest,
     BlogPostPublish,
+    SchedulePostRequest,
     PractitionerBrief,
 )
 from app.schemas.blog_taxonomy import CategoryResponse, TagResponse
@@ -66,6 +67,7 @@ def _post_response(post: BlogPost, include_content: bool = True) -> dict:
         "editor_type": post.editor_type,
         "status": post.status,
         "published_at": post.published_at,
+        "scheduled_at": getattr(post, "scheduled_at", None),
         "featured_image_url": post.featured_image_url,
         "meta_title": post.meta_title,
         "meta_description": post.meta_description,
@@ -254,6 +256,46 @@ async def unpublish_post(
     project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
     svc = BlogService(db, project_id)
     post = await svc.unpublish_post(post_id=id, practitioner_id=practitioner.id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found or access denied")
+    return _post_response(post)
+
+
+@router.post("/posts/{id}/schedule", response_model=BlogPostResponse)
+async def schedule_post(
+    id: int,
+    body: SchedulePostRequest,
+    db: AsyncSession = Depends(get_db),
+    practitioner: PractitionerProfile = Depends(get_current_practitioner),
+):
+    """Schedule post for future publish. scheduled_at must be at least 5 minutes in the future (UTC)."""
+    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+    svc = BlogService(db, project_id)
+    post = await svc.schedule_post(
+        post_id=id,
+        practitioner_id=practitioner.id,
+        scheduled_at=body.scheduled_at,
+        meta_title=body.meta_title,
+        meta_description=body.meta_description,
+    )
+    if not post:
+        raise HTTPException(
+            status_code=400,
+            detail="Post not found, access denied, content empty, or scheduled_at must be at least 5 minutes in the future",
+        )
+    return _post_response(post)
+
+
+@router.post("/posts/{id}/unschedule", response_model=BlogPostResponse)
+async def unschedule_post(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    practitioner: PractitionerProfile = Depends(get_current_practitioner),
+):
+    """Remove schedule: set post back to draft and clear scheduled_at."""
+    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+    svc = BlogService(db, project_id)
+    post = await svc.unschedule_post(post_id=id, practitioner_id=practitioner.id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found or access denied")
     return _post_response(post)

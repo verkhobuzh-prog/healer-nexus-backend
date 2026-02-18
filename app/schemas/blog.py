@@ -54,6 +54,15 @@ class BlogPostPublish(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SchedulePostRequest(BaseModel):
+    """Schedule a post for future publish. scheduled_at must be in the future (UTC)."""
+    scheduled_at: datetime
+    meta_title: Optional[str] = Field(None, max_length=255)
+    meta_description: Optional[str] = Field(None, max_length=500)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PractitionerBrief(BaseModel):
     id: int
     display_name: Optional[str] = None
@@ -73,6 +82,7 @@ class BlogPostResponse(BaseModel):
     editor_type: str
     status: str
     published_at: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None
     featured_image_url: Optional[str] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
@@ -99,6 +109,7 @@ class BlogPostListItem(BaseModel):
     editor_type: str
     status: str
     published_at: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None
     featured_image_url: Optional[str] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None

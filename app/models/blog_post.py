@@ -15,6 +15,7 @@ from app.models.base import Base, TimestampMixin
 
 class PostStatus(str, enum.Enum):
     DRAFT = "draft"
+    SCHEDULED = "scheduled"
     PUBLISHED = "published"
     ARCHIVED = "archived"
 
@@ -46,6 +47,9 @@ class BlogPost(Base, TimestampMixin):
         String(20), nullable=False, default=PostStatus.DRAFT.value, index=True
     )
     published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    scheduled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     featured_image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)

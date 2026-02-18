@@ -358,6 +358,74 @@ class BlogService:
         await self.session.refresh(post)
         return post
 
+    async def schedule_post(
+        self,
+        post_id: int,
+        practitioner_id: int,
+        scheduled_at: datetime,
+        meta_title: Optional[str] = None,
+        meta_description: Optional[str] = None,
+    ) -> Optional[BlogPost]:
+        """Schedule post for future publish. scheduled_at must be at least 5 minutes in the future (UTC)."""
+        post = await self.get_post_by_id(post_id)
+        if not post or post.practitioner_id != practitioner_id:
+            return None
+        if not (post.content and post.content.strip()):
+            return None
+        now = datetime.now(timezone.utc)
+        if scheduled_at.tzinfo is None:
+            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+        min_future = now.timestamp() + 5 * 60
+        if scheduled_at.timestamp() < min_future:
+            return None
+        post.status = PostStatus.SCHEDULED.value
+        post.scheduled_at = scheduled_at
+        if meta_title is not None:
+            post.meta_title = meta_title
+        if meta_description is not None:
+            post.meta_description = meta_description
+        if not post.meta_description or not post.meta_description.strip():
+            plain = re.sub(r"<[^>]+>", "", post.content)
+            plain = re.sub(r"\s+", " ", plain).strip()
+            post.meta_description = (plain[:497] + "…") if len(plain) > 500 else plain
+        await self.session.commit()
+        await self.session.refresh(post)
+        return post
+
+    async def unschedule_post(self, post_id: int, practitioner_id: int) -> Optional[BlogPost]:
+        """Revert scheduled post back to draft and clear scheduled_at."""
+        post = await self.get_post_by_id(post_id)
+        if not post or post.practitioner_id != practitioner_id:
+            return None
+        post.status = PostStatus.DRAFT.value
+        post.scheduled_at = None
+        await self.session.commit()
+        await self.session.refresh(post)
+        return post
+
+    async def publish_scheduled_posts(self) -> int:
+        """Find posts where status=SCHEDULED and scheduled_at <= now(), publish each. Commits per post."""
+        now = datetime.now(timezone.utc)
+        r = await self.session.execute(
+            select(BlogPost).where(
+                BlogPost.project_id == self.project_id,
+                BlogPost.status == PostStatus.SCHEDULED.value,
+                BlogPost.scheduled_at <= now,
+            )
+        )
+        posts = list(r.scalars().all())
+        count = 0
+        for post in posts:
+            try:
+                post.status = PostStatus.PUBLISHED.value
+                post.published_at = now
+                post.scheduled_at = None
+                await self.session.commit()
+                count += 1
+            except Exception:
+                await self.session.rollback()
+        return count
+
     async def delete_post(self, post_id: int, practitioner_id: int) -> bool:
         post = await self.get_post_by_id(post_id)
         if not post or post.practitioner_id != practitioner_id:
