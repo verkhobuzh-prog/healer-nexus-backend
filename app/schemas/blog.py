@@ -8,6 +8,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.schemas.blog_taxonomy import CategoryResponse, TagResponse
+
 
 class BlogPostCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
@@ -17,6 +19,8 @@ class BlogPostCreate(BaseModel):
     meta_title: Optional[str] = Field(None, max_length=255)
     meta_description: Optional[str] = Field(None, max_length=500)
     telegram_discussion_url: Optional[str] = Field(None, max_length=500)
+    category_id: Optional[int] = None
+    tag_names: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +34,8 @@ class BlogPostUpdate(BaseModel):
     meta_description: Optional[str] = Field(None, max_length=500)
     telegram_discussion_url: Optional[str] = Field(None, max_length=500)
     status: Optional[str] = Field(None, description="draft | published | archived")
+    category_id: Optional[int] = None
+    tag_names: Optional[list[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -78,6 +84,8 @@ class BlogPostResponse(BaseModel):
     updated_at: datetime
     practitioner: Optional[PractitionerBrief] = None
     reading_time_minutes: int = 0
+    category: Optional[CategoryResponse] = None
+    tags: list[TagResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -101,6 +109,8 @@ class BlogPostListItem(BaseModel):
     updated_at: datetime
     practitioner: Optional[PractitionerBrief] = None
     reading_time_minutes: int = 0
+    category_name: Optional[str] = None
+    tag_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

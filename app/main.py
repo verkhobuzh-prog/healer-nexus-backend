@@ -10,6 +10,7 @@ from app.api.content import router as content_router
 from app.api.admin_brain import router as admin_brain_router
 from app.api.dashboard import router as dashboard_router
 from app.api.blog_router import router as blog_router
+from app.api.blog_taxonomy_router import router as blog_taxonomy_router
 from app.api.blog_pages_router import router as blog_pages_router
 from app.config import settings
 
@@ -50,6 +51,7 @@ app.include_router(content_router, prefix="/api")
 app.include_router(admin_brain_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api/dashboard")
 app.include_router(blog_router)
+app.include_router(blog_taxonomy_router)
 app.include_router(blog_pages_router)
 
 # 3. Ендпоінти здоров'я та статики

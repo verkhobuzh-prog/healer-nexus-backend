@@ -20,10 +20,10 @@ from app.schemas.blog import (
     BlogPostListItem,
     BlogPostListResponse,
     AIGenerateDraftRequest,
-    AIGenerateDraftResponse,
     BlogPostPublish,
     PractitionerBrief,
 )
+from app.schemas.blog_taxonomy import CategoryResponse, TagResponse
 from app.services.blog_service import BlogService
 from app.services.ai_blog_generator import generate_blog_draft
 from app.services.cloudinary_service import upload_image
@@ -53,6 +53,10 @@ def _post_response(post: BlogPost, include_content: bool = True) -> dict:
     practitioner = getattr(post, "practitioner", None)
     specialist = getattr(practitioner, "specialist", None) if practitioner else None
     brief = _practitioner_brief(practitioner, specialist)
+    category = getattr(post, "category", None)
+    tags = getattr(post, "tags", []) or []
+    category_resp = CategoryResponse.model_validate(category) if category else None
+    tags_resp = [TagResponse.model_validate(t) for t in tags]
     data = {
         "id": post.id,
         "project_id": post.project_id,
@@ -72,6 +76,10 @@ def _post_response(post: BlogPost, include_content: bool = True) -> dict:
         "updated_at": post.updated_at,
         "practitioner": brief,
         "reading_time_minutes": post.reading_time_minutes,
+        "category": category_resp,
+        "tags": tags_resp,
+        "category_name": category.name if category else None,
+        "tag_count": len(tags),
     }
     if include_content:
         data["content"] = post.content
@@ -97,6 +105,8 @@ async def create_post(
         meta_title=body.meta_title,
         meta_description=body.meta_description,
         telegram_discussion_url=body.telegram_discussion_url,
+        category_id=body.category_id,
+        tag_names=body.tag_names or [],
     )
     return _post_response(post)
 
@@ -105,6 +115,7 @@ async def create_post(
 async def list_posts(
     status: Optional[str] = None,
     practitioner_id: Optional[int] = None,
+    category_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
@@ -116,6 +127,7 @@ async def list_posts(
     posts, total = await svc.list_posts(
         practitioner_id=practitioner_id or practitioner.id,
         status=status,
+        category_id=category_id,
         page=max(1, page),
         page_size=min(50, max(1, page_size)),
     )

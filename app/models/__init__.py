@@ -7,6 +7,9 @@ from app.models.conversation import Conversation
 from app.models.specialist_content import SpecialistContent
 from app.models.practitioner_profile import PractitionerProfile
 from app.models.blog_post import BlogPost, PostStatus, EditorType
+from app.models.blog_category import BlogCategory
+from app.models.blog_tag import BlogTag
+from app.models.blog_post_tag import BlogPostTag
 
 __all__ = [
     "Base",
@@ -20,4 +23,7 @@ __all__ = [
     "BlogPost",
     "PostStatus",
     "EditorType",
+    "BlogCategory",
+    "BlogTag",
+    "BlogPostTag",
 ]

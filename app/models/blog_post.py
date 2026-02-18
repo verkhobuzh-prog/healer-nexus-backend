@@ -55,11 +55,28 @@ class BlogPost(Base, TimestampMixin):
     telegram_discussion_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ai_generated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     ai_prompt_topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    category_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("blog_categories.id"),
+        nullable=True,
+        index=True,
+    )
 
     practitioner: Mapped["PractitionerProfile"] = relationship(
         "PractitionerProfile",
         lazy="selectin",
         foreign_keys=[practitioner_id],
+    )
+    category: Mapped["BlogCategory | None"] = relationship(
+        "BlogCategory",
+        lazy="selectin",
+        foreign_keys=[category_id],
+    )
+    tags: Mapped[list["BlogTag"]] = relationship(
+        "BlogTag",
+        secondary="blog_post_tags",
+        lazy="selectin",
+        backref="posts",
     )
 
     __table_args__ = (

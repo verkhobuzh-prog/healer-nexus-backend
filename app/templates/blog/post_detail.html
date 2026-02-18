@@ -34,6 +34,14 @@
         .share-twitter { background: #1da1f2; color: #fff; }
         .cta-telegram { margin-top: 1rem; }
         .cta-telegram a { color: #0088cc; }
+        .article-category { margin-top: .5rem; }
+        .article-category a { color: #1967d2; text-decoration: none; font-size: .9rem; }
+        .article-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+        .article-tags a { padding: .25em .5em; border-radius: 6px; font-size: .8rem; background: #e8f0fe; color: #1967d2; text-decoration: none; }
+        .related { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #eee; }
+        .related h3 { font-size: 1rem; margin-bottom: .75rem; }
+        .related-list { display: flex; flex-direction: column; gap: .5rem; }
+        .related-list a { color: #1967d2; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -45,6 +53,16 @@
                     {{ post.reading_time_minutes }} хв · {{ post.views_count }} переглядів
                     {% if post.ai_generated %}<span class="badge">AI</span>{% endif %}
                 </div>
+                {% if post.category %}
+                <div class="article-category">Категорія: <a href="/blog/{{ request.path_params['practitioner_slug'] }}/category/{{ post.category.slug }}">{{ post.category.name }}</a></div>
+                {% endif %}
+                {% if post.tags %}
+                <div class="article-tags">
+                    {% for tag in post.tags %}
+                    <a href="/blog/{{ request.path_params['practitioner_slug'] }}/tag/{{ tag.slug }}">{{ tag.name }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </header>
             {% if post.featured_image_url %}
             <p><img src="{{ post.featured_image_url }}" alt="" style="max-width:100%; height:auto; border-radius:8px;"></p>
@@ -66,6 +84,16 @@
         <div class="cta-telegram">
             <a href="{{ post.telegram_discussion_url }}" target="_blank" rel="noopener">Обговорити в Telegram →</a>
         </div>
+        {% endif %}
+        {% if related_posts %}
+        <section class="related">
+            <h3>Схожі записи</h3>
+            <div class="related-list">
+                {% for r in related_posts %}
+                <a href="/blog/{{ request.path_params['practitioner_slug'] }}/{{ r.slug }}">{{ r.title }}</a>
+                {% endfor %}
+            </div>
+        </section>
         {% endif %}
     </div>
     <script>

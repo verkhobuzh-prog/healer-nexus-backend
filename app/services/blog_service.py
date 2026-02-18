@@ -4,56 +4,18 @@ Blog CRUD and slug generation. Async SQLAlchemy 2.0, multi-tenant by project_id.
 from __future__ import annotations
 
 import re
-import unicodedata
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.blog_post import BlogPost, PostStatus
-
-
-# Ukrainian Cyrillic -> Latin transliteration
-UA_TRANSLIT = {
-    "а": "a", "б": "b", "в": "v", "г": "h", "ґ": "g", "д": "d", "е": "e",
-    "є": "ye", "ж": "zh", "з": "z", "и": "y", "і": "i", "ї": "yi", "й": "y",
-    "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p", "р": "r",
-    "с": "s", "т": "t", "у": "u", "ф": "f", "х": "kh", "ц": "ts", "ч": "ch",
-    "ш": "sh", "щ": "shch", "ь": "", "ю": "yu", "я": "ya",
-    "А": "A", "Б": "B", "В": "V", "Г": "H", "Ґ": "G", "Д": "D", "Е": "E",
-    "Є": "Ye", "Ж": "Zh", "З": "Z", "И": "Y", "І": "I", "Ї": "Yi", "Й": "Y",
-    "К": "K", "Л": "L", "М": "M", "Н": "N", "О": "O", "П": "P", "Р": "R",
-    "С": "S", "Т": "T", "У": "U", "Ф": "F", "Х": "Kh", "Ц": "Ts", "Ч": "Ch",
-    "Ш": "Sh", "Щ": "Shch", "Ь": "", "Ю": "Yu", "Я": "Ya",
-}
-
-
-def generate_slug(title: str) -> str:
-    """Slug from title with Ukrainian transliteration."""
-    if not title or not title.strip():
-        return "post"
-    slug = title.strip()
-    result = []
-    for char in slug:
-        if char in UA_TRANSLIT:
-            result.append(UA_TRANSLIT[char])
-        elif char.isalnum() or char in " -_":
-            result.append(char)
-        else:
-            try:
-                n = unicodedata.name(char)
-                if "LATIN" in n or "DIGIT" in n:
-                    result.append(char)
-                else:
-                    result.append("")
-            except ValueError:
-                result.append("")
-    slug = "".join(result)
-    slug = re.sub(r"[-\s]+", "-", slug).strip("-").lower()
-    slug = re.sub(r"[^a-z0-9-]", "", slug)
-    return slug or "post"
+from app.models.blog_post_tag import BlogPostTag
+from app.models.blog_tag import BlogTag
+from app.services.blog_slug import generate_slug
+from app.services.blog_taxonomy_service import BlogTaxonomyService
 
 
 async def ensure_unique_slug(
@@ -95,6 +57,8 @@ class BlogService:
         meta_title: Optional[str] = None,
         meta_description: Optional[str] = None,
         telegram_discussion_url: Optional[str] = None,
+        category_id: Optional[int] = None,
+        tag_names: Optional[list[str]] = None,
     ) -> BlogPost:
         slug = generate_slug(title)
         slug = await ensure_unique_slug(self.session, self.project_id, slug)
@@ -110,8 +74,17 @@ class BlogService:
             meta_title=meta_title,
             meta_description=meta_description,
             telegram_discussion_url=telegram_discussion_url,
+            category_id=category_id,
         )
         self.session.add(post)
+        await self.session.flush()
+        if tag_names:
+            tax = BlogTaxonomyService(self.session, self.project_id)
+            tags = await tax.get_or_create_tags(tag_names)
+            for tag in tags:
+                self.session.add(BlogPostTag(post_id=post.id, tag_id=tag.id))
+            for tag in tags:
+                await tax.increment_tag_usage(tag.id, commit=False)
         await self.session.commit()
         await self.session.refresh(post)
         return post
@@ -150,7 +123,11 @@ class BlogService:
         r = await self.session.execute(
             select(BlogPost)
             .where(BlogPost.id == post_id, BlogPost.project_id == self.project_id)
-            .options(selectinload(BlogPost.practitioner))
+            .options(
+                selectinload(BlogPost.practitioner),
+                selectinload(BlogPost.category),
+                selectinload(BlogPost.tags),
+            )
         )
         return r.scalar_one_or_none()
 
@@ -161,7 +138,11 @@ class BlogService:
                 BlogPost.project_id == self.project_id,
                 BlogPost.slug == slug,
             )
-            .options(selectinload(BlogPost.practitioner))
+            .options(
+                selectinload(BlogPost.practitioner),
+                selectinload(BlogPost.category),
+                selectinload(BlogPost.tags),
+            )
         )
         return r.scalar_one_or_none()
 
@@ -169,6 +150,7 @@ class BlogService:
         self,
         practitioner_id: Optional[int] = None,
         status: Optional[str] = None,
+        category_id: Optional[int] = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[BlogPost], int]:
@@ -182,10 +164,17 @@ class BlogService:
         if status is not None:
             q = q.where(BlogPost.status == status)
             count_q = count_q.where(BlogPost.status == status)
+        if category_id is not None:
+            q = q.where(BlogPost.category_id == category_id)
+            count_q = count_q.where(BlogPost.category_id == category_id)
         total_r = await self.session.execute(count_q)
         total = total_r.scalar() or 0
         q = (
-            q.options(selectinload(BlogPost.practitioner))
+            q.options(
+                selectinload(BlogPost.practitioner),
+                selectinload(BlogPost.category),
+                selectinload(BlogPost.tags),
+            )
             .order_by(BlogPost.created_at.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
@@ -207,6 +196,76 @@ class BlogService:
             page_size=page_size,
         )
 
+    async def list_posts_by_category_slug(
+        self,
+        category_slug: str,
+        practitioner_id: Optional[int] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[BlogPost], int]:
+        from app.models.blog_category import BlogCategory
+        r = await self.session.execute(
+            select(BlogCategory.id).where(
+                BlogCategory.project_id == self.project_id,
+                BlogCategory.slug == category_slug,
+                BlogCategory.is_active == True,
+            )
+        )
+        cat_id = r.scalar_one_or_none()
+        if cat_id is None:
+            return [], 0
+        return await self.list_posts(
+            practitioner_id=practitioner_id,
+            status=PostStatus.PUBLISHED.value,
+            category_id=cat_id,
+            page=page,
+            page_size=page_size,
+        )
+
+    async def list_posts_by_tag_slug(
+        self,
+        tag_slug: str,
+        practitioner_id: Optional[int] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[BlogPost], int]:
+        r = await self.session.execute(
+            select(BlogTag.id).where(
+                BlogTag.project_id == self.project_id,
+                BlogTag.slug == tag_slug,
+            )
+        )
+        tag_id = r.scalar_one_or_none()
+        if tag_id is None:
+            return [], 0
+        q = (
+            select(BlogPost)
+            .where(BlogPost.project_id == self.project_id, BlogPost.status == PostStatus.PUBLISHED.value)
+            .where(BlogPost.id.in_(select(BlogPostTag.post_id).where(BlogPostTag.tag_id == tag_id)))
+        )
+        count_q = (
+            select(func.count(BlogPost.id))
+            .where(BlogPost.project_id == self.project_id, BlogPost.status == PostStatus.PUBLISHED.value)
+            .where(BlogPost.id.in_(select(BlogPostTag.post_id).where(BlogPostTag.tag_id == tag_id)))
+        )
+        if practitioner_id is not None:
+            q = q.where(BlogPost.practitioner_id == practitioner_id)
+            count_q = count_q.where(BlogPost.practitioner_id == practitioner_id)
+        total_r = await self.session.execute(count_q)
+        total = total_r.scalar() or 0
+        q = (
+            q.options(
+                selectinload(BlogPost.practitioner),
+                selectinload(BlogPost.category),
+                selectinload(BlogPost.tags),
+            )
+            .order_by(BlogPost.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        r = await self.session.execute(q)
+        return list(r.scalars().all()), total
+
     async def update_post(
         self,
         post_id: int,
@@ -219,10 +278,25 @@ class BlogService:
         meta_description: Optional[str] = None,
         telegram_discussion_url: Optional[str] = None,
         status: Optional[str] = None,
+        category_id: Optional[int] = None,
+        tag_names: Optional[list[str]] = None,
     ) -> Optional[BlogPost]:
         post = await self.get_post_by_id(post_id)
         if not post or post.practitioner_id != practitioner_id:
             return None
+        tax = BlogTaxonomyService(self.session, self.project_id)
+        if tag_names is not None:
+            old_tag_ids = {t.id for t in post.tags}
+            new_tags = await tax.get_or_create_tags(tag_names)
+            new_tag_ids = {t.id for t in new_tags}
+            for tag_id in old_tag_ids - new_tag_ids:
+                await tax.decrement_tag_usage(tag_id, commit=False)
+            for tag in new_tags:
+                if tag.id not in old_tag_ids:
+                    await tax.increment_tag_usage(tag.id, commit=False)
+            await self.session.execute(delete(BlogPostTag).where(BlogPostTag.post_id == post_id))
+            for tag in new_tags:
+                self.session.add(BlogPostTag(post_id=post_id, tag_id=tag.id))
         if title is not None:
             post.title = title
             new_slug = generate_slug(title)
@@ -243,6 +317,8 @@ class BlogService:
             post.telegram_discussion_url = telegram_discussion_url
         if status is not None:
             post.status = status
+        if category_id is not None:
+            post.category_id = category_id
         await self.session.commit()
         await self.session.refresh(post)
         return post
@@ -286,6 +362,10 @@ class BlogService:
         post = await self.get_post_by_id(post_id)
         if not post or post.practitioner_id != practitioner_id:
             return False
+        tax = BlogTaxonomyService(self.session, self.project_id)
+        for tag in post.tags:
+            await tax.decrement_tag_usage(tag.id, commit=False)
+        await self.session.execute(delete(BlogPostTag).where(BlogPostTag.post_id == post_id))
         await self.session.delete(post)
         await self.session.commit()
         return True

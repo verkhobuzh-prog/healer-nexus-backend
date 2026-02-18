@@ -16,6 +16,7 @@ from app.models.practitioner_profile import PractitionerProfile
 from app.models.specialist import Specialist
 from app.models.blog_post import BlogPost, PostStatus
 from app.services.blog_service import BlogService
+from app.services.blog_taxonomy_service import BlogTaxonomyService
 from app.config import settings
 
 router = APIRouter(tags=["Blog Pages"])
@@ -55,6 +56,13 @@ async def _get_specialist_name(db: AsyncSession, profile: Optional[PractitionerP
     return getattr(spec, "name", "") if spec else ""
 
 
+async def _get_categories_and_tag_cloud(db: AsyncSession, project_id: str, tag_cloud_limit: int = 20):
+    tax = BlogTaxonomyService(db, project_id)
+    categories = await tax.list_categories()
+    tag_cloud = await tax.get_tag_cloud(limit=tag_cloud_limit)
+    return categories, tag_cloud
+
+
 @router.get("/blog/{practitioner_slug}", response_class=HTMLResponse)
 async def blog_list_page(
     request: Request,
@@ -75,6 +83,7 @@ async def blog_list_page(
         page_size=page_size,
     )
     display_name = await _get_specialist_name(db, practitioner)
+    categories, tag_cloud = await _get_categories_and_tag_cloud(db, project_id)
     return templates.TemplateResponse(
         "blog/post_list.html",
         {
@@ -86,6 +95,94 @@ async def blog_list_page(
             "page": page,
             "page_size": page_size,
             "has_next": (page * page_size) < total,
+            "categories": categories,
+            "tag_cloud": tag_cloud,
+            "current_category_slug": None,
+            "current_tag_slug": None,
+        },
+    )
+
+
+@router.get("/blog/{practitioner_slug}/category/{category_slug}", response_class=HTMLResponse)
+async def blog_list_by_category_page(
+    request: Request,
+    practitioner_slug: str,
+    category_slug: str,
+    page: int = 1,
+    page_size: int = 12,
+    db: AsyncSession = Depends(get_db),
+):
+    """HTML listing filtered by category."""
+    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+    practitioner = await _resolve_practitioner(db, practitioner_slug, project_id)
+    if not practitioner:
+        raise HTTPException(status_code=404, detail="Practitioner not found")
+    svc = BlogService(db, project_id)
+    posts, total = await svc.list_posts_by_category_slug(
+        category_slug=category_slug,
+        practitioner_id=practitioner.id,
+        page=page,
+        page_size=page_size,
+    )
+    display_name = await _get_specialist_name(db, practitioner)
+    categories, tag_cloud = await _get_categories_and_tag_cloud(db, project_id)
+    return templates.TemplateResponse(
+        "blog/post_list.html",
+        {
+            "request": request,
+            "practitioner": practitioner,
+            "display_name": display_name,
+            "posts": posts,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_next": (page * page_size) < total,
+            "categories": categories,
+            "tag_cloud": tag_cloud,
+            "current_category_slug": category_slug,
+            "current_tag_slug": None,
+        },
+    )
+
+
+@router.get("/blog/{practitioner_slug}/tag/{tag_slug}", response_class=HTMLResponse)
+async def blog_list_by_tag_page(
+    request: Request,
+    practitioner_slug: str,
+    tag_slug: str,
+    page: int = 1,
+    page_size: int = 12,
+    db: AsyncSession = Depends(get_db),
+):
+    """HTML listing filtered by tag."""
+    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+    practitioner = await _resolve_practitioner(db, practitioner_slug, project_id)
+    if not practitioner:
+        raise HTTPException(status_code=404, detail="Practitioner not found")
+    svc = BlogService(db, project_id)
+    posts, total = await svc.list_posts_by_tag_slug(
+        tag_slug=tag_slug,
+        practitioner_id=practitioner.id,
+        page=page,
+        page_size=page_size,
+    )
+    display_name = await _get_specialist_name(db, practitioner)
+    categories, tag_cloud = await _get_categories_and_tag_cloud(db, project_id)
+    return templates.TemplateResponse(
+        "blog/post_list.html",
+        {
+            "request": request,
+            "practitioner": practitioner,
+            "display_name": display_name,
+            "posts": posts,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_next": (page * page_size) < total,
+            "categories": categories,
+            "tag_cloud": tag_cloud,
+            "current_category_slug": None,
+            "current_tag_slug": tag_slug,
         },
     )
 
@@ -111,6 +208,12 @@ async def blog_detail_page(
     await svc.increment_views(post.id)
     post = await svc.get_post_by_id(post.id) or post
     display_name = await _get_specialist_name(db, practitioner)
+    related = await svc.list_public_posts(
+        practitioner_id=practitioner.id,
+        page=1,
+        page_size=4,
+    )
+    related_posts = [p for p in related[0] if p.id != post.id][:3]
     return templates.TemplateResponse(
         "blog/post_detail.html",
         {
@@ -118,5 +221,6 @@ async def blog_detail_page(
             "practitioner": practitioner,
             "display_name": display_name,
             "post": post,
+            "related_posts": related_posts,
         },
     )
