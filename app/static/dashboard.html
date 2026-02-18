@@ -38,9 +38,48 @@
         
         .name { font-size: 1.5rem; margin: 10px 0; }
         .btn { display: block; text-align: center; padding: 10px; background: #3498db; color: white; text-decoration: none; border-radius: 10px; margin-top: 10px; }
+
+        /* Dashboard stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); text-align: center; }
+        .stat-card h2 { margin: 0; font-size: 2rem; color: #2c3e50; }
+        .stat-card p { margin: 8px 0 0; font-size: 0.9rem; color: #7f8c8d; }
+        .specialists-section { margin-bottom: 24px; }
+        .specialists-section h2 { margin-bottom: 12px; }
+        .specialist-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .specialist-card h3 { margin: 0 0 8px; font-size: 1.1rem; }
+        .specialist-card p { margin: 4px 0; font-size: 0.9rem; color: #555; }
     </style>
 </head>
 <body>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h2 id="total-users">0</h2>
+            <p>Total Users</p>
+        </div>
+        <div class="stat-card">
+            <h2 id="total-conversations">0</h2>
+            <p>Conversations</p>
+        </div>
+        <div class="stat-card">
+            <h2 id="total-messages">0</h2>
+            <p>Messages</p>
+        </div>
+        <div class="stat-card">
+            <h2 id="total-specialists">0</h2>
+            <p>Active Specialists</p>
+        </div>
+        <div class="stat-card">
+            <h2 id="active-week">0</h2>
+            <p>Active Last Week</p>
+        </div>
+    </div>
+
+    <div class="specialists-section">
+        <h2>Specialists (Dashboard API)</h2>
+        <div id="specialists-list"></div>
+    </div>
 
     <div class="filter-panel">
         <button class="filter-btn btn-all active" onclick="filterNiche('all')">Всі</button>
@@ -73,9 +112,10 @@
 
             // Рендер карток
             document.getElementById('grid').innerHTML = data.map(s => {
+                const niche = s.service_type || s.niche || '';
                 let colorClass = 'healer';
-                if (s.niche.includes('3d')) colorClass = 'design3d';
-                else if (s.niche.includes('design')) colorClass = 'design';
+                if (niche.includes('3d')) colorClass = 'design3d';
+                else if (niche.includes('design')) colorClass = 'design';
 
                 // Додавання маркера на мапу
                 const mColor = colorClass === 'healer' ? '#2ecc71' : (colorClass === 'design3d' ? '#e67e22' : '#3498db');
@@ -88,7 +128,7 @@
 
                 return `
                     <div class="card ${colorClass}">
-                        <span style="font-size: 0.8rem; font-weight: bold;">${s.niche.toUpperCase()}</span>
+                        <span style="font-size: 0.8rem; font-weight: bold;">${niche.toUpperCase()}</span>
                         <h2 class="name">${s.name}</h2>
                         <p>${s.specialty}</p>
                         <div class="price"><b>${s.hourly_rate}</b> грн/год</div>
@@ -105,12 +145,59 @@
             if (niche === 'all') {
                 render(allData);
             } else {
-                const filtered = allData.filter(s => s.niche.toLowerCase().includes(niche));
+                const filtered = allData.filter(s => (s.service_type || s.niche || '').toLowerCase().includes(niche));
                 render(filtered);
             }
         }
 
         load();
+    </script>
+
+    <script>
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch('/api/dashboard/stats');
+                const data = await response.json();
+                document.getElementById('total-users').textContent = data.total_users;
+                document.getElementById('total-conversations').textContent = data.total_conversations;
+                document.getElementById('total-messages').textContent = data.total_messages;
+                document.getElementById('total-specialists').textContent = data.total_specialists;
+                document.getElementById('active-week').textContent = data.active_last_week;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        async function loadSpecialists() {
+            try {
+                const response = await fetch('/api/dashboard/specialists');
+                const data = await response.json();
+                const container = document.getElementById('specialists-list');
+                container.innerHTML = data.specialists.map(s => `
+                    <div class="specialist-card">
+                        <h3>${escapeHtml(s.name)}</h3>
+                        <p>${escapeHtml(s.specialty)}</p>
+                        <p>Rate: ${s.hourly_rate}₴/год</p>
+                        <p>Type: ${escapeHtml(s.service_type)}</p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load specialists:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            if (text == null) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDashboardStats();
+            loadSpecialists();
+            setInterval(loadDashboardStats, 30000);
+        });
     </script>
 </body>
 </html>
