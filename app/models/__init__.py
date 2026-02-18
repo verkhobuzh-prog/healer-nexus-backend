@@ -6,6 +6,7 @@ from app.models.specialist import Specialist
 from app.models.conversation import Conversation
 from app.models.specialist_content import SpecialistContent
 from app.models.practitioner_profile import PractitionerProfile
+from app.models.blog_post import BlogPost, PostStatus, EditorType
 
 __all__ = [
     "Base",
@@ -16,4 +17,7 @@ __all__ = [
     "Conversation",
     "SpecialistContent",
     "PractitionerProfile",
+    "BlogPost",
+    "PostStatus",
+    "EditorType",
 ]

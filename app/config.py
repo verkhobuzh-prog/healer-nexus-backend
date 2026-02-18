@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     ADMIN_CHAT_ID: str = ""
     BASE_URL: str = Field(default="http://localhost:8000", env="BASE_URL")
     DEBUG: bool = False
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
     
     class Config:
         env_file = str(BASE_DIR / ".env")

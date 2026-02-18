@@ -1,0 +1,122 @@
+"""
+Public blog pages: HTML listing and post detail. Prefix /blog.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional
+
+from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database.connection import get_db
+from app.models.practitioner_profile import PractitionerProfile
+from app.models.specialist import Specialist
+from app.models.blog_post import BlogPost, PostStatus
+from app.services.blog_service import BlogService
+from app.config import settings
+
+router = APIRouter(tags=["Blog Pages"])
+
+templates_dir = Path(__file__).resolve().parent.parent / "templates"
+templates = Jinja2Templates(directory=str(templates_dir))
+
+
+async def _resolve_practitioner(
+    db: AsyncSession,
+    practitioner_slug: str,
+    project_id: str,
+) -> Optional[PractitionerProfile]:
+    """
+    Resolve practitioner by slug. PractitionerProfile has no slug;
+    use id when practitioner_slug is numeric.
+    """
+    try:
+        pid = int(practitioner_slug.strip())
+    except ValueError:
+        return None
+    r = await db.execute(
+        select(PractitionerProfile).where(
+            PractitionerProfile.id == pid,
+            PractitionerProfile.project_id == project_id,
+            PractitionerProfile.is_active == True,
+        )
+    )
+    return r.scalar_one_or_none()
+
+
+async def _get_specialist_name(db: AsyncSession, profile: Optional[PractitionerProfile]) -> str:
+    if not profile or not getattr(profile, "specialist_id", None):
+        return ""
+    r = await db.execute(select(Specialist).where(Specialist.id == profile.specialist_id))
+    spec = r.scalar_one_or_none()
+    return getattr(spec, "name", "") if spec else ""
+
+
+@router.get("/blog/{practitioner_slug}", response_class=HTMLResponse)
+async def blog_list_page(
+    request: Request,
+    practitioner_slug: str,
+    page: int = 1,
+    page_size: int = 12,
+    db: AsyncSession = Depends(get_db),
+):
+    """HTML listing page for a practitioner's published posts."""
+    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+    practitioner = await _resolve_practitioner(db, practitioner_slug, project_id)
+    if not practitioner:
+        raise HTTPException(status_code=404, detail="Practitioner not found")
+    svc = BlogService(db, project_id)
+    posts, total = await svc.list_public_posts(
+        practitioner_id=practitioner.id,
+        page=page,
+        page_size=page_size,
+    )
+    display_name = await _get_specialist_name(db, practitioner)
+    return templates.TemplateResponse(
+        "blog/post_list.html",
+        {
+            "request": request,
+            "practitioner": practitioner,
+            "display_name": display_name,
+            "posts": posts,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_next": (page * page_size) < total,
+        },
+    )
+
+
+@router.get("/blog/{practitioner_slug}/{post_slug}", response_class=HTMLResponse)
+async def blog_detail_page(
+    request: Request,
+    practitioner_slug: str,
+    post_slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """HTML post detail; increments views."""
+    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+    practitioner = await _resolve_practitioner(db, practitioner_slug, project_id)
+    if not practitioner:
+        raise HTTPException(status_code=404, detail="Practitioner not found")
+    svc = BlogService(db, project_id)
+    post = await svc.get_post_by_slug(post_slug)
+    if not post or post.practitioner_id != practitioner.id:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.status != PostStatus.PUBLISHED.value:
+        raise HTTPException(status_code=404, detail="Post not found")
+    await svc.increment_views(post.id)
+    post = await svc.get_post_by_id(post.id) or post
+    display_name = await _get_specialist_name(db, practitioner)
+    return templates.TemplateResponse(
+        "blog/post_detail.html",
+        {
+            "request": request,
+            "practitioner": practitioner,
+            "display_name": display_name,
+            "post": post,
+        },
+    )
