@@ -9,18 +9,25 @@ from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
 from app.ai.self_reflection import reflection_engine
 from app.ai.prompts import EMPATHY_RULE, ETHICAL_INSTRUCTION
+from app.services.chat_tools import CHAT_TOOLS, TOOL_SYSTEM_PROMPT_ADDITION
+from app.services.chat_tool_executor import ChatToolExecutor
 
 logger = logging.getLogger(__name__)
 
-class GeminiProvider:
-    def __init__(self):
-        try:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            self.model = genai.GenerativeModel('gemini-2.5-flash')  # ✅ FIXED: was gemini-2.5-flash
-            logger.info("✅ Gemini client initialized")
-        except Exception as e:
-            logger.error(f"❌ Gemini init failed: {e}")
-            raise
+
+def _contents_from_history(history: list, system_prompt: str, last_message: str):
+    """Build Gemini contents: system + history + user message."""
+    contents = []
+    if system_prompt:
+        contents.append(genai.protos.Content(role="user", parts=[genai.protos.Part(text=system_prompt)]))
+    for msg in (history or [])[-10:]:
+        role = "user" if msg.get("role") == "user" else "model"
+        text = (msg.get("content") or "").strip()
+        if text:
+            contents.append(genai.protos.Content(role=role, parts=[genai.protos.Part(text=text)]))
+    if last_message:
+        contents.append(genai.protos.Content(role="user", parts=[genai.protos.Part(text=last_message)]))
+    return contents
     
     async def generate_response(
         self,
@@ -46,22 +53,20 @@ class GeminiProvider:
         
         response_mode = reflection_engine.get_response_mode(user_intent, anxiety_score)
         
-        # 2. Пошук спеціалістів з БД (якщо передано db)
+        # 2. Пошук спеціалістів з БД (якщо передано db) — fallback when not using tools
         top_specialists = []
         if db:
             try:
-                # ✅ Коректний асинхронний запит
                 result = await db.execute(
                     select(Specialist)
                     .where(
                         Specialist.service_type == detected_service,
                         Specialist.is_active == True
                     )
-                    .order_by(Specialist.hourly_rate)  # Від дешевших до дорожчих
+                    .order_by(Specialist.hourly_rate)
                     .limit(3)
                 )
-                specialists = result.scalars().all()  # ✅ .all() синхронний після execute
-                
+                specialists = result.scalars().all()
                 top_specialists = [
                     {
                         "id": s.id,
@@ -73,20 +78,29 @@ class GeminiProvider:
                     }
                     for s in specialists
                 ]
-                
                 logger.info(f"🔍 Found {len(top_specialists)} specialists for {detected_service}")
-                
             except Exception as e:
                 logger.error(f"❌ DB query failed: {e}")
-        
-        # 3. AI текст генерація (з practitioner profile якщо є)
-        ai_text = await self._gemini_generate(
-            message,
-            history,
-            detected_service,
-            top_specialists,
-            db=db,
-        )
+
+        # 3. AI текст: tool-based flow (search_specialists, create_booking) when db available
+        ai_text = ""
+        if db and user_id:
+            try:
+                ai_text, tool_specialists = await self._gemini_generate_with_tools(
+                    message, history, detected_service, db, user_id
+                )
+                if tool_specialists:
+                    top_specialists = tool_specialists
+            except Exception as e:
+                logger.warning("Tool-based generation failed, falling back: %s", e)
+        if not ai_text:
+            ai_text = await self._gemini_generate(
+                message,
+                history,
+                detected_service,
+                top_specialists,
+                db=db,
+            )
         
         # 4. Smart link
         smart_link = reflection_engine.generate_smart_link(
@@ -108,7 +122,90 @@ class GeminiProvider:
                 "show_buttons": response_mode.value != "listening"
             }
         }
-    
+
+    async def _gemini_generate_with_tools(
+        self,
+        message: str,
+        history: list,
+        service_type: str,
+        db: AsyncSession,
+        user_id: int,
+    ) -> tuple[str, list]:
+        """Generate with tool loop; returns (text, top_specialists from last search)."""
+        role_prompts = {
+            "healer": "Ти - духовний цілитель 🧘. Допомагаєш з медитацією.",
+            "coach": "Ти - коуч 💎. Працюєш з розвитком.",
+            "teacher_math": "Ти - вчитель математики 📐.",
+            "interior_designer": "Ти - дизайнер інтер'єрів 🛋️.",
+            "3d_modeling": "Ти - 3D спеціаліст 🎨.",
+            "web_development": "Ти - веб-розробник 💻.",
+            "default": "Ти - AI асистент Healer Nexus 🌟.",
+        }
+        system_prompt = role_prompts.get(service_type, role_prompts["default"])
+        system_prompt += f"\n\n{EMPATHY_RULE}\n\n{ETHICAL_INSTRUCTION}\n\n{TOOL_SYSTEM_PROMPT_ADDITION}"
+        project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
+        executor = ChatToolExecutor(db, project_id, user_id, conversation_id=None)
+        try:
+            model_with_tools = genai.GenerativeModel("gemini-2.5-flash", tools=CHAT_TOOLS)
+        except Exception:
+            model_with_tools = genai.GenerativeModel("gemini-2.5-flash", tools=[CHAT_TOOLS])
+        contents = _contents_from_history(history, system_prompt, message)
+        top_specialists = []
+        max_tool_rounds = 5
+        while max_tool_rounds > 0:
+            max_tool_rounds -= 1
+            response = await asyncio.to_thread(model_with_tools.generate_content, contents)
+            if not response.candidates or not response.candidates[0].content.parts:
+                return (getattr(response, "text", None) or "", top_specialists)
+            parts = response.candidates[0].content.parts
+            function_calls = []
+            text_parts = []
+            for part in parts:
+                if getattr(part, "function_call", None):
+                    fc = part.function_call
+                    name = getattr(fc, "name", None) or ""
+                    args = dict(getattr(fc, "args", None) or {})
+                    if hasattr(args, "items"):
+                        args = dict(args)
+                    else:
+                        args = {}
+                    function_calls.append((part, name, args))
+                elif getattr(part, "text", None):
+                    text_parts.append(part.text)
+            if function_calls:
+                model_content = genai.protos.Content(
+                    role="model",
+                    parts=[p for p, _, _ in function_calls],
+                )
+                contents.append(model_content)
+                response_parts = []
+                for _, fc_name, fc_args in function_calls:
+                    result = await executor.execute_tool_call(fc_name, fc_args)
+                    if fc_name == "search_specialists" and isinstance(result.get("specialists"), list):
+                        top_specialists = [
+                            {
+                                "id": s.get("id"),
+                                "name": s.get("name"),
+                                "specialty": s.get("specialty"),
+                                "rate": s.get("hourly_rate", 0),
+                                "delivery": s.get("delivery_method", "human"),
+                                "is_ai": False,
+                            }
+                            for s in result["specialists"]
+                        ]
+                    response_parts.append(
+                        genai.protos.Part(
+                            function_response=genai.protos.FunctionResponse(
+                                name=fc_name,
+                                response={"result": result},
+                            )
+                        )
+                    )
+                contents.append(genai.protos.Content(role="user", parts=response_parts))
+                continue
+            return ("".join(text_parts).strip() or "", top_specialists)
+        return ("", top_specialists)
+
     async def _gemini_generate(
         self,
         message: str,

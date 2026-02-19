@@ -13,6 +13,7 @@ from app.api.blog_router import router as blog_router
 from app.api.blog_taxonomy_router import router as blog_taxonomy_router
 from app.api.blog_pages_router import router as blog_pages_router
 from app.api.blog_analytics_router import router as blog_analytics_router
+from app.api.booking_router import router as booking_router
 from app.services.blog_scheduler import blog_scheduler
 from app.services.blog_analytics_aggregator import blog_analytics_aggregator
 from app.config import settings
@@ -65,6 +66,7 @@ app.include_router(blog_router)
 app.include_router(blog_taxonomy_router)
 app.include_router(blog_pages_router)
 app.include_router(blog_analytics_router)
+app.include_router(booking_router)
 
 # 3. Ендпоінти здоров'я та статики
 @app.get("/api/health")

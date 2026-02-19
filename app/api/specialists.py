@@ -6,8 +6,16 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from app.database.connection import get_db
 from app.models.specialist import Specialist
+from app.models.practitioner_profile import PractitionerProfile
+from app.schemas.booking import SpecialistSearchResult, SpecialistMatchItem
+from app.services.specialist_matcher import SpecialistMatcher
+from app.config import settings
 
 router = APIRouter(tags=["Specialists"])
+
+
+def _project_id() -> str:
+    return getattr(settings, "PROJECT_ID", "healer_nexus")
 
 class SpecialistBase(BaseModel):
     """Базова схема"""
@@ -148,3 +156,63 @@ async def delete_specialist(
     specialist.is_active = False
     await db.commit()
     return {"message": "Specialist deactivated", "id": specialist_id}
+
+
+@router.get("/specialists/search", response_model=SpecialistSearchResult)
+async def search_specialists(
+    q: str = Query(..., min_length=1),
+    specialty: Optional[str] = Query(None),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search specialists by keywords (public). Returns ranked matches with match_reason."""
+    matcher = SpecialistMatcher(db, _project_id())
+    results = await matcher.search(query=q, specialty=specialty, limit=limit)
+    items = [
+        SpecialistMatchItem(
+            id=r["id"],
+            name=r["name"],
+            specialty=r["specialty"],
+            description=r.get("description"),
+            rating=r.get("rating"),
+            contact_link=r.get("contact_link"),
+            avatar_url=r.get("avatar_url"),
+            match_reason=r.get("match_reason", ""),
+        )
+        for r in results
+    ]
+    return SpecialistSearchResult(specialists=items, query=q, total_found=len(items))
+
+
+@router.get("/specialists/{specialist_id}/details")
+async def get_specialist_details(
+    specialist_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Full specialist profile (for AI/details page). Public."""
+    r = await db.execute(
+        select(Specialist).where(Specialist.id == specialist_id, Specialist.is_active == True)
+    )
+    spec = r.scalar_one_or_none()
+    if not spec:
+        raise HTTPException(status_code=404, detail="Specialist not found")
+    profile_r = await db.execute(
+        select(PractitionerProfile).where(
+            PractitionerProfile.specialist_id == specialist_id,
+            PractitionerProfile.project_id == _project_id(),
+        ).limit(1)
+    )
+    profile = profile_r.scalar_one_or_none()
+    return {
+        "id": spec.id,
+        "name": spec.name,
+        "specialty": spec.specialty,
+        "service_type": spec.service_type,
+        "bio": spec.bio,
+        "hourly_rate": spec.hourly_rate,
+        "delivery_method": spec.delivery_method,
+        "portfolio_url": spec.portfolio_url,
+        "telegram_id": spec.telegram_id,
+        "unique_story": getattr(profile, "unique_story", None) if profile else None,
+        "contact_link": getattr(profile, "contact_link", None) if profile else None,
+    }
