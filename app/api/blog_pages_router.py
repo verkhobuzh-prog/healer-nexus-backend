@@ -17,7 +17,11 @@ from app.models.specialist import Specialist
 from app.models.blog_post import BlogPost, PostStatus
 from app.services.blog_service import BlogService
 from app.services.blog_taxonomy_service import BlogTaxonomyService
+from app.services.blog_analytics_service import BlogAnalyticsService
 from app.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Blog Pages"])
 
@@ -205,8 +209,22 @@ async def blog_detail_page(
         raise HTTPException(status_code=404, detail="Post not found")
     if post.status != PostStatus.PUBLISHED.value:
         raise HTTPException(status_code=404, detail="Post not found")
-    await svc.increment_views(post.id)
-    post = await svc.get_post_by_id(post.id) or post
+    try:
+        analytics_svc = BlogAnalyticsService(db, project_id)
+        referrer_url = request.headers.get("referer")
+        user_agent = request.headers.get("user-agent")
+        ip_address = request.client.host if request.client else None
+        session_id = request.cookies.get("blog_session")
+        await analytics_svc.record_view(
+            post_id=post.id,
+            referrer_url=referrer_url,
+            user_agent=user_agent,
+            ip_address=ip_address,
+            session_id=session_id,
+        )
+        post = await svc.get_post_by_id(post.id) or post
+    except Exception:
+        logger.exception("View tracking failed (non-blocking)")
     display_name = await _get_specialist_name(db, practitioner)
     related = await svc.list_public_posts(
         practitioner_id=practitioner.id,

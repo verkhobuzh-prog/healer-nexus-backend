@@ -6,10 +6,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import get_db
+from app.services.blog_analytics_service import BlogAnalyticsService
 from app.api.deps import get_current_practitioner
 from app.models.practitioner_profile import PractitionerProfile
 from app.models.blog_post import BlogPost, PostStatus
@@ -170,18 +171,33 @@ async def list_public_posts(
 
 @router.get("/posts/{slug}", response_model=BlogPostResponse)
 async def get_post_by_slug(
+    request: Request,
     slug: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Public view by slug; increments views if published."""
+    """Public view by slug; records view for published posts (analytics)."""
     project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
     svc = BlogService(db, project_id)
     post = await svc.get_post_by_slug(slug)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     if post.status == PostStatus.PUBLISHED.value:
-        await svc.increment_views(post.id)
-        post = await svc.get_post_by_id(post.id) or post
+        try:
+            analytics_svc = BlogAnalyticsService(db, project_id)
+            referrer_url = request.headers.get("referer")
+            user_agent = request.headers.get("user-agent")
+            ip_address = request.client.host if request.client else None
+            session_id = request.cookies.get("blog_session")
+            await analytics_svc.record_view(
+                post_id=post.id,
+                referrer_url=referrer_url,
+                user_agent=user_agent,
+                ip_address=ip_address,
+                session_id=session_id,
+            )
+            post = await svc.get_post_by_id(post.id) or post
+        except Exception:
+            logger.exception("View tracking failed (non-blocking)")
     return _post_response(post)
 
 

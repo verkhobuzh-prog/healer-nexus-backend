@@ -12,7 +12,9 @@ from app.api.dashboard import router as dashboard_router
 from app.api.blog_router import router as blog_router
 from app.api.blog_taxonomy_router import router as blog_taxonomy_router
 from app.api.blog_pages_router import router as blog_pages_router
+from app.api.blog_analytics_router import router as blog_analytics_router
 from app.services.blog_scheduler import blog_scheduler
+from app.services.blog_analytics_aggregator import blog_analytics_aggregator
 from app.config import settings
 
 # 1. Налаштування логування (ЗАВЖДИ ВГОРІ)
@@ -45,10 +47,12 @@ async def startup():
         logger.error("❌ GEMINI_API_KEY IS MISSING!")
     logger.info("✅ База даних готова та синхронізована")
     await blog_scheduler.start()
+    await blog_analytics_aggregator.start()
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    await blog_analytics_aggregator.stop()
     await blog_scheduler.stop()
 
 # 2. Реєстрація API маршрутів
@@ -60,6 +64,7 @@ app.include_router(dashboard_router, prefix="/api/dashboard")
 app.include_router(blog_router)
 app.include_router(blog_taxonomy_router)
 app.include_router(blog_pages_router)
+app.include_router(blog_analytics_router)
 
 # 3. Ендпоінти здоров'я та статики
 @app.get("/api/health")
