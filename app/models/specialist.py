@@ -1,12 +1,16 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Integer, Text, BigInteger, Boolean, Float, JSON
+from sqlalchemy import String, Integer, Text, BigInteger, Boolean, Float, JSON, ForeignKey
 from app.models.base import Base, TimestampMixin
+
 
 class Specialist(Base, TimestampMixin):
     """Модель спеціаліста (людина або AI)"""
     __tablename__ = "specialists"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True, index=True
+    )  # Link to users.id for JWT auth (no cascade)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # ✅ Синхронізовано: service_type замість niche

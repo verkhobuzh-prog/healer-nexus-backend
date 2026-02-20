@@ -5,13 +5,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user, get_current_specialist
 from app.database.connection import get_db
-from app.models.specialist import Specialist
 from app.models.booking import Booking
+from app.models.specialist import Specialist
+from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingResponse, BookingListResponse
 from app.services.booking_service import BookingService
 from app.config import settings
@@ -21,28 +23,6 @@ router = APIRouter(prefix="/api/bookings", tags=["Bookings"])
 
 def _project_id() -> str:
     return getattr(settings, "PROJECT_ID", "healer_nexus")
-
-
-async def _user_id_from_header(
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
-) -> int:
-    if not x_user_id or not x_user_id.strip():
-        raise HTTPException(status_code=401, detail="Missing X-User-Id header")
-    try:
-        return int(x_user_id.strip())
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid X-User-Id")
-
-
-async def _specialist_id_from_header(
-    x_specialist_id: Optional[str] = Header(None, alias="X-Specialist-Id"),
-) -> int:
-    if not x_specialist_id or not x_specialist_id.strip():
-        raise HTTPException(status_code=401, detail="Missing X-Specialist-Id header")
-    try:
-        return int(x_specialist_id.strip())
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid X-Specialist-Id")
 
 
 def _booking_to_response(booking: Booking, specialist_name: Optional[str] = None, specialist_specialty: Optional[str] = None) -> BookingResponse:
@@ -70,11 +50,11 @@ async def list_my_bookings(
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(_user_id_from_header),
+    user: User = Depends(get_current_user),
 ):
-    """List current user's bookings (requires X-User-Id)."""
+    """List current user's bookings (JWT required)."""
     svc = BookingService(db, _project_id())
-    bookings, total = await svc.list_bookings(user_id=user_id, status=status, page=page, page_size=page_size)
+    bookings, total = await svc.list_bookings(user_id=user.id, status=status, page=page, page_size=page_size)
     specialists = {}
     if bookings:
         r = await db.execute(select(Specialist).where(Specialist.id.in_(b.specialist_id for b in bookings)))
@@ -97,12 +77,12 @@ async def list_specialist_bookings(
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
-    specialist_id: int = Depends(_specialist_id_from_header),
+    specialist: Specialist = Depends(get_current_specialist),
 ):
-    """List bookings for the given specialist (requires X-Specialist-Id)."""
+    """List bookings for the current specialist (JWT required)."""
     svc = BookingService(db, _project_id())
-    bookings, total = await svc.list_bookings(specialist_id=specialist_id, status=status, page=page, page_size=page_size)
-    r = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
+    bookings, total = await svc.list_bookings(specialist_id=specialist.id, status=status, page=page, page_size=page_size)
+    r = await db.execute(select(Specialist).where(Specialist.id == specialist.id))
     spec = r.scalar_one_or_none()
     name, specialty = (spec.name, spec.specialty) if spec else (None, None)
     items = [_booking_to_response(b, specialist_name=name, specialist_specialty=specialty) for b in bookings]
@@ -113,14 +93,14 @@ async def list_specialist_bookings(
 async def get_booking(
     booking_id: int,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(_user_id_from_header),
+    user: User = Depends(get_current_user),
 ):
     """Get booking by id (owner only)."""
     svc = BookingService(db, _project_id())
     booking = await svc.get_booking(booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
-    if booking.user_id != user_id:
+    if booking.user_id != user.id:
         raise HTTPException(status_code=404, detail="Booking not found")
     r = await db.execute(select(Specialist).where(Specialist.id == booking.specialist_id))
     spec = r.scalar_one_or_none()
@@ -135,13 +115,13 @@ async def get_booking(
 async def create_booking(
     body: BookingCreate,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(_user_id_from_header),
+    user: User = Depends(get_current_user),
 ):
-    """Create a booking (requires X-User-Id)."""
+    """Create a booking (JWT required)."""
     svc = BookingService(db, _project_id())
     try:
         booking = await svc.create_booking(
-            user_id=user_id,
+            user_id=user.id,
             specialist_id=body.specialist_id,
             reason=body.reason,
             user_message=body.user_message,
@@ -163,12 +143,12 @@ async def create_booking(
 async def cancel_booking(
     booking_id: int,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(_user_id_from_header),
+    user: User = Depends(get_current_user),
 ):
     """Cancel a booking (owner only)."""
     svc = BookingService(db, _project_id())
     booking = await svc.get_booking(booking_id)
-    if not booking or booking.user_id != user_id:
+    if not booking or booking.user_id != user.id:
         raise HTTPException(status_code=404, detail="Booking not found")
     updated = await svc.cancel_booking(booking_id)
     if not updated:
@@ -182,24 +162,24 @@ async def cancel_booking(
     )
 
 
-# Specialist-facing: confirm / complete (auth by X-Specialist-Id)
+# Specialist-facing: confirm / complete (JWT required)
 
 @router.post("/{booking_id}/confirm", response_model=BookingResponse)
 async def confirm_booking(
     booking_id: int,
     specialist_notes: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    specialist_id: int = Depends(_specialist_id_from_header),
+    specialist: Specialist = Depends(get_current_specialist),
 ):
     """Confirm a booking (specialist only)."""
     svc = BookingService(db, _project_id())
     booking = await svc.get_booking(booking_id)
-    if not booking or booking.specialist_id != specialist_id:
+    if not booking or booking.specialist_id != specialist.id:
         raise HTTPException(status_code=404, detail="Booking not found")
     updated = await svc.confirm_booking(booking_id, specialist_notes=specialist_notes)
     if not updated:
         raise HTTPException(status_code=400, detail="Booking cannot be confirmed")
-    r = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
+    r = await db.execute(select(Specialist).where(Specialist.id == specialist.id))
     spec = r.scalar_one_or_none()
     return _booking_to_response(
         updated,
@@ -212,17 +192,17 @@ async def confirm_booking(
 async def complete_booking(
     booking_id: int,
     db: AsyncSession = Depends(get_db),
-    specialist_id: int = Depends(_specialist_id_from_header),
+    specialist: Specialist = Depends(get_current_specialist),
 ):
     """Mark booking as completed (specialist only)."""
     svc = BookingService(db, _project_id())
     booking = await svc.get_booking(booking_id)
-    if not booking or booking.specialist_id != specialist_id:
+    if not booking or booking.specialist_id != specialist.id:
         raise HTTPException(status_code=404, detail="Booking not found")
     updated = await svc.complete_booking(booking_id)
     if not updated:
         raise HTTPException(status_code=400, detail="Booking cannot be completed")
-    r = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
+    r = await db.execute(select(Specialist).where(Specialist.id == specialist.id))
     spec = r.scalar_one_or_none()
     return _booking_to_response(
         updated,

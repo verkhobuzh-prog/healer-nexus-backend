@@ -7,9 +7,16 @@ class User(Base, TimestampMixin):  # Успадковуємо час створ�
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)  # nullable for email-only users
     username = Column(String, nullable=True)
-    
+
+    # JWT / email auth
+    email = Column(String(255), unique=True, index=True, nullable=True)
+    password_hash = Column(String(255), nullable=True)
+    role = Column(String(20), nullable=False, server_default="user")
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+
     # Поле created_at тепер береться з TimestampMixin, 
     # тому тут його можна видалити, щоб не було дублювання.
 

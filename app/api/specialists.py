@@ -4,6 +4,7 @@ from sqlalchemy import select
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.api.deps import require_role
 from app.database.connection import get_db
 from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
@@ -79,9 +80,10 @@ class SpecialistUpdate(BaseModel):
 @router.post("/specialists", response_model=SpecialistResponse, status_code=201)
 async def create_specialist(
     data: SpecialistCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    _user=Depends(require_role("admin", "specialist")),
 ):
-    """Створення нового спеціаліста"""
+    """Створення нового спеціаліста (admin або specialist)."""
     # .model_dump() замість .dict() для Pydantic v2
     new_specialist = Specialist(**data.model_dump())
     
@@ -128,9 +130,10 @@ async def get_specialist_by_id(
 async def update_specialist(
     specialist_id: int,
     data: SpecialistUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    _user=Depends(require_role("admin", "specialist")),
 ):
-    """Оновлення спеціаліста (лише передані поля)."""
+    """Оновлення спеціаліста (admin або specialist)."""
     result = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
     specialist = result.scalar_one_or_none()
     if not specialist:
@@ -146,9 +149,10 @@ async def update_specialist(
 @router.delete("/specialists/{specialist_id}")
 async def delete_specialist(
     specialist_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    _user=Depends(require_role("admin", "specialist")),
 ):
-    """М'яке видалення: is_active = False."""
+    """М'яке видалення: is_active = False (admin або specialist)."""
     result = await db.execute(select(Specialist).where(Specialist.id == specialist_id))
     specialist = result.scalar_one_or_none()
     if not specialist:

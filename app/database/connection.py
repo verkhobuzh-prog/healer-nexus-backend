@@ -29,6 +29,7 @@ async def init_db():
     from app.models.specialist_content import SpecialistContent
     from app.models.conversation import Conversation
     from app.models.knowledge_base import KnowledgeBase
+    from app.models.refresh_token import RefreshToken  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

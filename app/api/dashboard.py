@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 import logging
 
+from app.api.deps import require_role
 from app.database.connection import get_db
 from app.models.user import User
 from app.models.conversation import Conversation
@@ -17,8 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/stats")
-async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
-    """Get overall platform statistics."""
+async def get_dashboard_stats(
+    db: AsyncSession = Depends(get_db),
+    _user=Depends(require_role("admin")),
+):
+    """Get overall platform statistics (admin only)."""
     # Total users (User model has no project_id)
     users_result = await db.execute(select(func.count(User.id)))
     total_users = users_result.scalar() or 0
@@ -61,8 +65,11 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/specialists")
-async def get_specialists_stats(db: AsyncSession = Depends(get_db)):
-    """Get specialist statistics."""
+async def get_specialists_stats(
+    db: AsyncSession = Depends(get_db),
+    _user=Depends(require_role("admin")),
+):
+    """Get specialist statistics (admin only)."""
     result = await db.execute(
         select(Specialist).where(Specialist.is_active == True)
     )
@@ -86,8 +93,12 @@ async def get_specialists_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/recent-activity")
-async def get_recent_activity(limit: int = 10, db: AsyncSession = Depends(get_db)):
-    """Get recent conversations."""
+async def get_recent_activity(
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    _user=Depends(require_role("admin")),
+):
+    """Get recent conversations (admin only)."""
     project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
     result = await db.execute(
         select(Conversation)
