@@ -42,6 +42,9 @@
         .related h3 { font-size: 1rem; margin-bottom: .75rem; }
         .related-list { display: flex; flex-direction: column; gap: .5rem; }
         .related-list a { color: #1967d2; text-decoration: none; }
+        .social-links { margin-top: .75rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+        .social-links .social-link { padding: .35rem .6rem; border-radius: 8px; text-decoration: none; font-size: .875rem; background: #e8f0fe; color: #1967d2; }
+        .social-links .social-link:hover { background: #d2e3fc; }
     </style>
 </head>
 <body>
@@ -73,6 +76,14 @@
             <strong>{{ display_name or "Практик" }}</strong>
             {% if practitioner.unique_story %}
             <p>{{ practitioner.unique_story }}</p>
+            {% endif %}
+            {% if social_links %}
+            <div class="social-links">
+                <strong>Соцмережі</strong>
+                {% for link in social_links %}
+                <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.platform }}" class="social-link">{{ link.icon }} {{ link.platform | capitalize }}</a>
+                {% endfor %}
+            </div>
             {% endif %}
         </aside>
         <div class="share">

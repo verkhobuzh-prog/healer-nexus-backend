@@ -13,6 +13,7 @@ from app.models.blog_post_tag import BlogPostTag
 from app.models.blog_post_view import BlogPostView
 from app.models.blog_analytics_daily import BlogAnalyticsDaily
 from app.models.booking import Booking, BookingStatus
+from app.models.specialist_recommendation import SpecialistRecommendation
 
 __all__ = [
     "Base",
@@ -33,4 +34,5 @@ __all__ = [
     "BlogAnalyticsDaily",
     "Booking",
     "BookingStatus",
+    "SpecialistRecommendation",
 ]

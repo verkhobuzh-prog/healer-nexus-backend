@@ -18,6 +18,7 @@ from app.models.blog_post import BlogPost, PostStatus
 from app.services.blog_service import BlogService
 from app.services.blog_taxonomy_service import BlogTaxonomyService
 from app.services.blog_analytics_service import BlogAnalyticsService
+from app.services.social_links import build_all_social_urls
 from app.config import settings
 import logging
 
@@ -88,6 +89,7 @@ async def blog_list_page(
     )
     display_name = await _get_specialist_name(db, practitioner)
     categories, tag_cloud = await _get_categories_and_tag_cloud(db, project_id)
+    social_links = build_all_social_urls(getattr(practitioner, "social_links", None))
     return templates.TemplateResponse(
         "blog/post_list.html",
         {
@@ -103,6 +105,7 @@ async def blog_list_page(
             "tag_cloud": tag_cloud,
             "current_category_slug": None,
             "current_tag_slug": None,
+            "social_links": social_links,
         },
     )
 
@@ -130,6 +133,7 @@ async def blog_list_by_category_page(
     )
     display_name = await _get_specialist_name(db, practitioner)
     categories, tag_cloud = await _get_categories_and_tag_cloud(db, project_id)
+    social_links = build_all_social_urls(getattr(practitioner, "social_links", None))
     return templates.TemplateResponse(
         "blog/post_list.html",
         {
@@ -145,6 +149,7 @@ async def blog_list_by_category_page(
             "tag_cloud": tag_cloud,
             "current_category_slug": category_slug,
             "current_tag_slug": None,
+            "social_links": social_links,
         },
     )
 
@@ -172,6 +177,7 @@ async def blog_list_by_tag_page(
     )
     display_name = await _get_specialist_name(db, practitioner)
     categories, tag_cloud = await _get_categories_and_tag_cloud(db, project_id)
+    social_links = build_all_social_urls(getattr(practitioner, "social_links", None))
     return templates.TemplateResponse(
         "blog/post_list.html",
         {
@@ -187,6 +193,7 @@ async def blog_list_by_tag_page(
             "tag_cloud": tag_cloud,
             "current_category_slug": None,
             "current_tag_slug": tag_slug,
+            "social_links": social_links,
         },
     )
 
@@ -232,6 +239,7 @@ async def blog_detail_page(
         page_size=4,
     )
     related_posts = [p for p in related[0] if p.id != post.id][:3]
+    social_links = build_all_social_urls(getattr(practitioner, "social_links", None))
     return templates.TemplateResponse(
         "blog/post_detail.html",
         {
@@ -240,5 +248,6 @@ async def blog_detail_page(
             "display_name": display_name,
             "post": post,
             "related_posts": related_posts,
+            "social_links": social_links,
         },
     )

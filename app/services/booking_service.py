@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.booking import Booking, BookingStatus
 from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
+from app.services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,15 @@ class BookingService:
             await self.notify_specialist_telegram(booking)
         except Exception as e:
             logger.exception("Booking Telegram notification failed: %s", e)
+        try:
+            rec_svc = RecommendationService(self.session, self.project_id)
+            await rec_svc.record_booked(
+                specialist_id=specialist_id,
+                user_id=user_id,
+                booking_id=booking.id,
+            )
+        except Exception as e:
+            logger.exception("Recommendation record_booked failed: %s", e)
         await self.session.commit()
         await self.session.refresh(booking)
         return booking

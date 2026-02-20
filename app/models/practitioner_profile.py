@@ -46,6 +46,8 @@ class PractitionerProfile(Base, TimestampMixin):
     creator_signature: Mapped[str] = mapped_column(
         String(255), default="Створено з ❤️ на платформі Healer Nexus", nullable=False
     )
+    # Social links: { "telegram": "username", "instagram": "handle", ... } — system builds full URLs
+    social_links: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
 
     def __repr__(self) -> str:
         return f"<PractitionerProfile(id={self.id}, specialist_id={self.specialist_id}, project_id={self.project_id})>"

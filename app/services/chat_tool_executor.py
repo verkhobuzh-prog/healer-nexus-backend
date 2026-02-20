@@ -11,6 +11,7 @@ from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
 from app.services.specialist_matcher import SpecialistMatcher
 from app.services.booking_service import BookingService
+from app.services.recommendation_service import RecommendationService
 
 
 class ChatToolExecutor:
@@ -55,6 +56,19 @@ class ChatToolExecutor:
                 "specialists": [],
                 "message": "Не знайдено спеціалістів за цим запитом",
             }
+        try:
+            rec_svc = RecommendationService(self.session, self.project_id)
+            for spec in results:
+                sid = spec.get("id") if isinstance(spec, dict) else getattr(spec, "id", None)
+                if sid:
+                    await rec_svc.record_recommendation(
+                        specialist_id=int(sid),
+                        user_id=self.user_id,
+                        source="chat",
+                        conversation_id=self.conversation_id,
+                    )
+        except Exception:
+            pass
         return {
             "specialists": results,
             "message": f"Знайдено {len(results)} спеціалістів",
@@ -89,6 +103,11 @@ class ChatToolExecutor:
         spec = r.scalar_one_or_none()
         if not spec:
             return {"error": "Спеціаліст не знайдений", "specialist_id": specialist_id}
+        try:
+            rec_svc = RecommendationService(self.session, self.project_id)
+            await rec_svc.record_details_viewed(specialist_id, self.user_id)
+        except Exception:
+            pass
         profile_r = await self.session.execute(
             select(PractitionerProfile).where(
                 PractitionerProfile.specialist_id == specialist_id,

@@ -38,6 +38,9 @@
         .pagination a, .pagination span { padding: .5rem .75rem; border-radius: 8px; text-decoration: none; color: #1a1a1a; background: #fff; }
         .pagination a:hover { background: #eee; }
         .sidebar-title { font-size: .9rem; font-weight: 600; margin-bottom: .5rem; }
+        .social-links { margin-top: 1rem; }
+        .social-links .social-link { display: block; padding: .35rem 0; color: #1967d2; text-decoration: none; font-size: .9rem; }
+        .social-links .social-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -104,6 +107,14 @@
             <div class="tag-cloud">
                 {% for item in tag_cloud %}
                 <a href="/blog/{{ request.path_params['practitioner_slug'] }}/tag/{{ item.slug }}" class="{% if current_tag_slug == item.slug %}active{% endif %}" style="font-size: {{ 0.75 + item.weight * 0.15 }}rem;">{{ item.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if social_links %}
+            <div class="social-links">
+                <p class="sidebar-title">Соцмережі</p>
+                {% for link in social_links %}
+                <a href="{{ link.url }}" target="_blank" rel="noopener" title="{{ link.platform }}" class="social-link">{{ link.icon }} {{ link.platform | capitalize }}</a>
                 {% endfor %}
             </div>
             {% endif %}

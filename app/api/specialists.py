@@ -4,9 +4,11 @@ from sqlalchemy import select
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.api.deps import require_role
+from app.api.deps import require_role, get_optional_user
 from app.database.connection import get_db
 from app.models.specialist import Specialist
+from app.models.user import User
+from app.services.recommendation_service import RecommendationService
 from app.models.practitioner_profile import PractitionerProfile
 from app.schemas.booking import SpecialistSearchResult, SpecialistMatchItem
 from app.services.specialist_matcher import SpecialistMatcher
@@ -168,10 +170,26 @@ async def search_specialists(
     specialty: Optional[str] = Query(None),
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     """Search specialists by keywords (public). Returns ranked matches with match_reason."""
     matcher = SpecialistMatcher(db, _project_id())
     results = await matcher.search(query=q, specialty=specialty, limit=limit)
+    try:
+        if results and user:
+            rec_svc = RecommendationService(db, _project_id())
+            for r in results:
+                sid = r.get("id") if isinstance(r, dict) else getattr(r, "id", None)
+                if sid:
+                    await rec_svc.record_recommendation(
+                        specialist_id=int(sid),
+                        user_id=user.id,
+                        source="search",
+                        conversation_id=None,
+                    )
+            await db.commit()
+    except Exception:
+        pass
     items = [
         SpecialistMatchItem(
             id=r["id"],
