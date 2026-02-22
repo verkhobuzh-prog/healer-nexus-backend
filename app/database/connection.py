@@ -21,16 +21,23 @@ async_session_maker = async_sessionmaker(
 )
 
 async def init_db():
-    """Ініціалізація бази даних"""
-    # Імпортуємо всі моделі для create_all
-    from app.models.user import User
-    from app.models.message import Message
-    from app.models.specialist import Specialist
-    from app.models.specialist_content import SpecialistContent
-    from app.models.conversation import Conversation
-    from app.models.knowledge_base import KnowledgeBase
+    """Ініціалізація бази даних — імпортуємо всі моделі перед create_all."""
+    from app.models.user import User  # noqa: F401
+    from app.models.message import Message  # noqa: F401
+    from app.models.specialist import Specialist  # noqa: F401
+    from app.models.specialist_content import SpecialistContent  # noqa: F401
+    from app.models.conversation import Conversation  # noqa: F401
+    from app.models.knowledge_base import KnowledgeBase  # noqa: F401
     from app.models.refresh_token import RefreshToken  # noqa: F401
     from app.models.specialist_recommendation import SpecialistRecommendation  # noqa: F401
+    from app.models.practitioner_profile import PractitionerProfile  # noqa: F401
+    from app.models.booking import Booking  # noqa: F401
+    from app.models.blog_post import BlogPost  # noqa: F401
+    from app.models.blog_category import BlogCategory  # noqa: F401
+    from app.models.blog_tag import BlogTag  # noqa: F401
+    from app.models.blog_post_tag import BlogPostTag  # noqa: F401
+    from app.models.blog_post_view import BlogPostView  # noqa: F401
+    from app.models.blog_analytics_daily import BlogAnalyticsDaily  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
