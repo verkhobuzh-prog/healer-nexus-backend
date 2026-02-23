@@ -18,6 +18,7 @@ from app.api.booking_router import router as booking_router
 from app.api.auth_router import router as auth_router
 from app.api.profile_router import router as profile_router
 from app.api.recommendation_router import router as recommendation_router
+from app.api.specialist_pages_router import router as specialist_pages_router
 from app.services.blog_scheduler import blog_scheduler
 from app.services.blog_analytics_aggregator import blog_analytics_aggregator
 from app.config import settings
@@ -80,6 +81,7 @@ app.include_router(booking_router)
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(recommendation_router)
+app.include_router(specialist_pages_router)
 
 # 3. Ендпоінти здоров'я та статики
 @app.get("/api/health")

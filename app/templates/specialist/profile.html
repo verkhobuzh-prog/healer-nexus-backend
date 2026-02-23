@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ specialist.name }} — {{ specialist.specialty }} | Healer Nexus</title>
+    <meta name="description" content="{{ bio_excerpt }}">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="{{ specialist.name }} — {{ specialist.specialty }}">
+    <meta property="og:description" content="{{ bio_excerpt }}">
+    <meta property="og:type" content="profile">
+    <meta property="og:url" content="{{ request.url }}">
+    {% if avatar_url %}
+    <meta property="og:image" content="{{ avatar_url }}">
+    {% endif %}
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #333; line-height: 1.6; }
+
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+
+        /* Header */
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 40px 30px; border-radius: 16px;
+            text-align: center; margin-bottom: 24px;
+        }
+        .profile-header .avatar {
+            width: 120px; height: 120px; border-radius: 50%;
+            border: 4px solid white; margin: 0 auto 16px;
+            background: #ddd; display: flex; align-items: center;
+            justify-content: center; font-size: 48px;
+        }
+        .profile-header h1 { font-size: 28px; margin-bottom: 4px; }
+        .profile-header .specialty { font-size: 18px; opacity: 0.9; }
+        .profile-header .rating { margin-top: 12px; font-size: 20px; }
+
+        /* Sections */
+        .section {
+            background: white; border-radius: 12px; padding: 24px;
+            margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .section h2 { font-size: 20px; margin-bottom: 12px; color: #444; }
+
+        /* Services */
+        .services { display: flex; flex-wrap: wrap; gap: 8px; }
+        .service-tag {
+            background: #f0f0ff; color: #667eea; padding: 6px 14px;
+            border-radius: 20px; font-size: 14px;
+        }
+        .price { margin-top: 12px; font-size: 18px; color: #667eea; font-weight: 600; }
+
+        /* Blog posts */
+        .blog-list { list-style: none; }
+        .blog-list li { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .blog-list li:last-child { border-bottom: none; }
+        .blog-list a { color: #667eea; text-decoration: none; font-weight: 500; }
+        .blog-list a:hover { text-decoration: underline; }
+        .blog-list .date { color: #999; font-size: 13px; margin-left: 8px; }
+
+        /* Social links */
+        .social-links { display: flex; flex-wrap: wrap; gap: 10px; }
+        .social-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; background: #f5f5f5; border-radius: 8px;
+            text-decoration: none; color: #333; font-size: 14px;
+        }
+        .social-link:hover { background: #e8e8ff; }
+        .gated-message { color: #888; font-style: italic; }
+
+        /* CTA Button */
+        .cta-section { text-align: center; padding: 32px; }
+        .cta-button {
+            display: inline-block; padding: 16px 48px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; font-size: 20px; font-weight: 600;
+            border-radius: 30px; text-decoration: none;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.5);
+        }
+
+        /* Footer */
+        .footer { text-align: center; padding: 20px; color: #aaa; font-size: 13px; }
+        .footer a { color: #667eea; text-decoration: none; }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .container { padding: 12px; }
+            .profile-header { padding: 24px 16px; }
+            .profile-header h1 { font-size: 22px; }
+            .cta-button { padding: 14px 32px; font-size: 17px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- Header -->
+        <div class="profile-header">
+            <div class="avatar">
+                {% if avatar_url %}
+                <img src="{{ avatar_url }}" alt="{{ specialist.name }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                {% else %}
+                {{ specialist.name[0] if specialist.name else '?' }}
+                {% endif %}
+            </div>
+            <h1>{{ specialist.name }}</h1>
+            <div class="specialty">{{ specialist.specialty }}</div>
+            {% if rating %}
+            <div class="rating">⭐ {{ rating }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Bio / Story -->
+        {% if unique_story or specialist.bio %}
+        <div class="section">
+            <h2>Про мене</h2>
+            <p>{{ unique_story or specialist.bio }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Services -->
+        {% if service_types %}
+        <div class="section">
+            <h2>Послуги</h2>
+            <div class="services">
+                {% for svc in service_types %}
+                <span class="service-tag">{{ svc }}</span>
+                {% endfor %}
+            </div>
+            {% if specialist.hourly_rate %}
+            <div class="price">💰 Від {{ specialist.hourly_rate }} грн/год</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Blog Posts -->
+        {% if blog_posts %}
+        <div class="section">
+            <h2>📝 Блог</h2>
+            <ul class="blog-list">
+                {% for post in blog_posts %}
+                <li>
+                    <a href="/blog/{{ practitioner_id }}/{{ post.slug }}">{{ post.title }}</a>
+                    <span class="date">{{ post.published_at.strftime('%d.%m.%Y') if post.published_at else '' }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Social Links -->
+        <div class="section">
+            <h2>Контакти</h2>
+            {% if social_links %}
+            <div class="social-links">
+                {% for link in social_links %}
+                <a href="{{ link.url }}" target="_blank" rel="noopener" class="social-link">
+                    {{ link.icon }} {{ link.platform | capitalize }}
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="gated-message">💬 Запишіться на консультацію щоб отримати контактну інформацію</p>
+            {% endif %}
+        </div>
+
+        <!-- CTA -->
+        <div class="section cta-section">
+            <a href="/" class="cta-button">💬 Записатись на консультацію</a>
+            {% if soft_cta %}
+            <p style="margin-top: 16px; color: #888;">{{ soft_cta }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>{{ creator_signature or 'Powered by' }} <a href="/">Healer Nexus Platform</a></p>
+        </div>
+
+    </div>
+</body>
+</html>
