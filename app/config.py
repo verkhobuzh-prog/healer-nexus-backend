@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -25,7 +26,7 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
 
     # JWT
-    JWT_SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    JWT_SECRET_KEY: str | None = None
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -36,6 +37,17 @@ class Settings(BaseSettings):
         extra = "ignore"
 
 settings = Settings()
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    if os.getenv("ENVIRONMENT", "development") == "production":
+        print("FATAL: JWT_SECRET_KEY not set!", file=sys.stderr)
+        sys.exit(1)
+    else:
+        import secrets
+        JWT_SECRET_KEY = secrets.token_hex(32)
+        print("WARNING: JWT_SECRET_KEY not set, using random key (dev only)")
+settings.JWT_SECRET_KEY = JWT_SECRET_KEY
 
 # Валідація при старті
 if not settings.GEMINI_API_KEY:
