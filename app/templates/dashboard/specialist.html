@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель управління — Healer Nexus</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; }
+
+        /* Layout */
+        .app { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #2c3e50; color: white; padding: 20px 0; position: fixed; height: 100vh; overflow-y: auto; }
+        .content { margin-left: 240px; padding: 24px; flex: 1; width: calc(100% - 240px); }
+
+        /* Sidebar */
+        .sidebar .logo { padding: 0 20px 20px; border-bottom: 1px solid #34495e; margin-bottom: 16px; }
+        .sidebar .logo h2 { font-size: 18px; }
+        .sidebar .logo small { color: #95a5a6; font-size: 12px; }
+        .sidebar .user-info { padding: 0 20px 16px; border-bottom: 1px solid #34495e; margin-bottom: 16px; }
+        .sidebar .user-info .name { font-weight: 600; }
+        .sidebar .user-info .role { color: #95a5a6; font-size: 12px; }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 20px; cursor: pointer; transition: background 0.2s;
+            font-size: 14px; border: none; background: none; color: white; width: 100%; text-align: left;
+        }
+        .nav-item:hover { background: #34495e; }
+        .nav-item.active { background: #667eea; }
+        .nav-item .icon { font-size: 18px; }
+
+        .sidebar .logout { position: absolute; bottom: 0; width: 100%; border-top: 1px solid #34495e; }
+
+        /* Content sections */
+        .section { display: none; }
+        .section.active { display: block; }
+        .section h1 { font-size: 24px; margin-bottom: 20px; }
+
+        /* Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .stat-card .number { font-size: 32px; font-weight: 700; color: #667eea; }
+        .stat-card .label { color: #888; font-size: 14px; margin-top: 4px; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        th { background: #f8f9fa; text-align: left; padding: 12px 16px; font-size: 13px; color: #888; text-transform: uppercase; }
+        td { padding: 12px 16px; border-top: 1px solid #f0f0f0; }
+        tr:hover { background: #f8f9ff; }
+
+        /* Buttons */
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn:hover { opacity: 0.85; }
+
+        /* Forms */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 4px; font-weight: 500; color: #555; font-size: 14px; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+        }
+        .form-group textarea { resize: vertical; min-height: 120px; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+
+        /* Status badges */
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-published { background: #d4edda; color: #155724; }
+        .badge-draft { background: #fff3cd; color: #856404; }
+        .badge-scheduled { background: #cce5ff; color: #004085; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-confirmed { background: #d4edda; color: #155724; }
+        .badge-completed { background: #cce5ff; color: #004085; }
+        .badge-cancelled { background: #f8d7da; color: #721c24; }
+
+        /* Alerts */
+        .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; border-radius: 16px; padding: 32px; width: 600px; max-width: 90vw; max-height: 90vh; overflow-y: auto; }
+        .modal h2 { margin-bottom: 20px; }
+        .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .sidebar { width: 60px; }
+            .sidebar .logo h2, .sidebar .logo small, .sidebar .user-info, .nav-item span { display: none; }
+            .nav-item { justify-content: center; padding: 14px; }
+            .content { margin-left: 60px; width: calc(100% - 60px); padding: 16px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* Loading */
+        .loading { text-align: center; padding: 40px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <h2>Healer Nexus</h2>
+                <small>Панель управління</small>
+            </div>
+            <div class="user-info">
+                <div class="name" id="user-name">...</div>
+                <div class="role" id="user-role">...</div>
+            </div>
+            <button class="nav-item active" onclick="showSection('blog')">
+                <span class="icon">📝</span> <span>Мій блог</span>
+            </button>
+            <button class="nav-item" onclick="showSection('analytics')">
+                <span class="icon">📊</span> <span>Аналітика</span>
+            </button>
+            <button class="nav-item" onclick="showSection('bookings')">
+                <span class="icon">📅</span> <span>Букінги</span>
+            </button>
+            <button class="nav-item" onclick="showSection('profile')">
+                <span class="icon">👤</span> <span>Профіль</span>
+            </button>
+            <button class="nav-item" onclick="showSection('social')">
+                <span class="icon">🔗</span> <span>Соцмережі</span>
+            </button>
+            <button class="nav-item" onclick="showSection('ai')">
+                <span class="icon">🤖</span> <span>AI Генератор</span>
+            </button>
+            <div class="logout">
+                <button class="nav-item" onclick="logout()">
+                    <span class="icon">🚪</span> <span>Вийти</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- BLOG SECTION -->
+            <div class="section active" id="section-blog">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                    <h1>📝 Мій блог</h1>
+                    <button class="btn btn-primary" onclick="openCreatePost()">✍️ Написати пост</button>
+                </div>
+                <div id="blog-posts"><div class="loading">Завантаження...</div></div>
+            </div>
+
+            <!-- ANALYTICS SECTION -->
+            <div class="section" id="section-analytics">
+                <h1>📊 Аналітика</h1>
+                <div class="stats-grid" id="analytics-stats"></div>
+                <div id="analytics-details"></div>
+            </div>
+
+            <!-- BOOKINGS SECTION -->
+            <div class="section" id="section-bookings">
+                <h1>📅 Мої букінги</h1>
+                <div id="bookings-list"><div class="loading">Завантаження...</div></div>
+            </div>
+
+            <!-- PROFILE SECTION -->
+            <div class="section" id="section-profile">
+                <h1>👤 Мій профіль</h1>
+                <div id="profile-form"><div class="loading">Завантаження...</div></div>
+            </div>
+
+            <!-- SOCIAL LINKS SECTION -->
+            <div class="section" id="section-social">
+                <h1>🔗 Мої соцмережі</h1>
+                <div id="social-form"><div class="loading">Завантаження...</div></div>
+            </div>
+
+            <!-- AI GENERATOR SECTION -->
+            <div class="section" id="section-ai">
+                <h1>🤖 AI Генератор постів</h1>
+                <div class="form-group">
+                    <label>Тема посту</label>
+                    <input type="text" id="ai-topic" placeholder="Наприклад: Як підготуватись до ЗНО з математики">
+                </div>
+                <div class="form-group">
+                    <label>Ключові слова (через кому)</label>
+                    <input type="text" id="ai-keywords" placeholder="ЗНО, математика, підготовка">
+                </div>
+                <div class="form-group">
+                    <label>Тон</label>
+                    <select id="ai-tone">
+                        <option value="professional">Професійний</option>
+                        <option value="friendly">Дружній</option>
+                        <option value="inspiring">Натхненний</option>
+                        <option value="educational">Навчальний</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="generateAIPost()" id="ai-generate-btn">🤖 Згенерувати пост</button>
+                <div id="ai-result" style="margin-top:20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Post Modal -->
+    <div class="modal-overlay" id="post-modal">
+        <div class="modal">
+            <h2 id="post-modal-title">Новий пост</h2>
+            <input type="hidden" id="edit-post-id">
+            <div class="form-group">
+                <label>Заголовок *</label>
+                <input type="text" id="post-title" placeholder="Заголовок вашого посту">
+            </div>
+            <div class="form-group">
+                <label>Контент *</label>
+                <textarea id="post-content" style="min-height:200px;" placeholder="Напишіть ваш пост тут..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Короткий опис</label>
+                <textarea id="post-excerpt" style="min-height:60px;" placeholder="Короткий опис для превʼю"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Теги (через кому)</label>
+                <input type="text" id="post-tags" placeholder="математика, ЗНО, підготовка">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closePostModal()">Скасувати</button>
+                <button class="btn btn-primary" onclick="savePost('draft')">💾 Зберегти чернетку</button>
+                <button class="btn btn-success" onclick="savePost('publish')">🚀 Опублікувати</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Config ──
+        const API = '';
+        let TOKEN = localStorage.getItem('access_token');
+        let USER = JSON.parse(localStorage.getItem('user') || 'null');
+
+        // ── Auth ──
+        if (!TOKEN) window.location.href = '/login';
+
+        async function api(path, options = {}) {
+            const res = await fetch(API + path, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${TOKEN}`,
+                    ...(options.headers || {})
+                }
+            });
+            if (res.status === 401) {
+                const refreshed = await refreshToken();
+                if (refreshed) return api(path, options);
+                logout();
+                return null;
+            }
+            return res;
+        }
+
+        async function refreshToken() {
+            const rt = localStorage.getItem('refresh_token');
+            if (!rt) return false;
+            try {
+                const res = await fetch('/api/auth/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: rt })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    TOKEN = data.access_token;
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                    return true;
+                }
+            } catch(e) {}
+            return false;
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+
+        // ── Navigation ──
+        function showSection(name) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`section-${name}`).classList.add('active');
+            const btn = (typeof event !== 'undefined' && event && event.target) ? event.target.closest('.nav-item') : null;
+            if (btn) btn.classList.add('active');
+            else document.querySelector('.nav-item')?.classList.add('active');
+
+            if (name === 'blog') loadBlog();
+            if (name === 'analytics') loadAnalytics();
+            if (name === 'bookings') loadBookings();
+            if (name === 'profile') loadProfile();
+            if (name === 'social') loadSocial();
+        }
+
+        // ── Blog ──
+        async function loadBlog() {
+            const res = await api('/api/blog/posts');
+            if (!res) return;
+            const posts = await res.json();
+            const el = document.getElementById('blog-posts');
+            if (!posts.length) {
+                el.innerHTML = '<div class="alert alert-success">Ще немає постів. Натисніть "Написати пост" або використайте AI Генератор!</div>';
+                return;
+            }
+            el.innerHTML = '<table><thead><tr><th>Заголовок</th><th>Статус</th><th>Дата</th><th>Перегляди</th><th>Дії</th></tr></thead><tbody>' +
+                posts.map(p => '<tr><td><strong>' + escapeHtml(p.title) + '</strong></td><td><span class="badge badge-' + escapeHtml(p.status) + '">' + escapeHtml(p.status) + '</span></td><td>' + (p.published_at ? new Date(p.published_at).toLocaleDateString('uk') : '-') + '</td><td>' + (p.views_count || 0) + '</td><td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="editPost(' + p.id + ')">✏️</button>' + (p.status === 'draft' ? '<button class="btn btn-success" style="padding:4px 10px;font-size:12px;" onclick="publishPost(' + p.id + ')">🚀</button>' : '') + '<button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="deletePost(' + p.id + ')">🗑️</button></td></tr>').join('') +
+                '</tbody></table>';
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
+        function openCreatePost() {
+            document.getElementById('post-modal-title').textContent = 'Новий пост';
+            document.getElementById('edit-post-id').value = '';
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
+            document.getElementById('post-excerpt').value = '';
+            document.getElementById('post-tags').value = '';
+            document.getElementById('post-modal').classList.add('active');
+        }
+
+        function closePostModal() {
+            document.getElementById('post-modal').classList.remove('active');
+        }
+
+        async function savePost(action) {
+            const id = document.getElementById('edit-post-id').value;
+            const title = document.getElementById('post-title').value;
+            const content = document.getElementById('post-content').value;
+            const excerpt = document.getElementById('post-excerpt').value;
+            const tags = document.getElementById('post-tags').value;
+            if (!title || !content) { alert("Заповніть заголовок і контент"); return; }
+
+            const body = { title, content, excerpt: excerpt || title, tags: tags ? tags.split(',').map(t=>t.trim()) : [] };
+            let res;
+            if (id) {
+                res = await api('/api/blog/posts/' + id, { method: 'PUT', body: JSON.stringify(body) });
+            } else {
+                res = await api('/api/blog/posts', { method: 'POST', body: JSON.stringify(body) });
+            }
+            if (res && res.ok) {
+                const post = await res.json();
+                if (action === 'publish' && post.id) {
+                    await api('/api/blog/posts/' + post.id + '/publish', { method: 'POST' });
+                }
+                closePostModal();
+                loadBlog();
+            } else {
+                alert('Помилка збереження');
+            }
+        }
+
+        async function editPost(id) {
+            const res = await api('/api/blog/posts');
+            if (!res) return;
+            const posts = await res.json();
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            document.getElementById('post-modal-title').textContent = 'Редагувати пост';
+            document.getElementById('edit-post-id').value = post.id;
+            document.getElementById('post-title').value = post.title;
+            document.getElementById('post-content').value = post.content || '';
+            document.getElementById('post-excerpt').value = post.excerpt || '';
+            document.getElementById('post-tags').value = (post.tags || []).join(', ');
+            document.getElementById('post-modal').classList.add('active');
+        }
+
+        async function publishPost(id) {
+            if (!confirm('Опублікувати пост?')) return;
+            await api('/api/blog/posts/' + id + '/publish', { method: 'POST' });
+            loadBlog();
+        }
+
+        async function deletePost(id) {
+            if (!confirm('Видалити пост?')) return;
+            await api('/api/blog/posts/' + id, { method: 'DELETE' });
+            loadBlog();
+        }
+
+        // ── Analytics ──
+        async function loadAnalytics() {
+            const res = await api('/api/blog/analytics/dashboard');
+            if (!res) return;
+            if (!res.ok) {
+                document.getElementById('analytics-stats').innerHTML = '<div class="stat-card"><div class="number">0</div><div class="label">Поки немає даних</div></div>';
+                return;
+            }
+            const data = await res.json();
+            document.getElementById('analytics-stats').innerHTML =
+                '<div class="stat-card"><div class="number">' + (data.total_views || 0) + '</div><div class="label">Переглядів</div></div>' +
+                '<div class="stat-card"><div class="number">' + (data.total_posts || 0) + '</div><div class="label">Постів</div></div>' +
+                '<div class="stat-card"><div class="number">' + (data.published_posts || 0) + '</div><div class="label">Опубліковано</div></div>' +
+                '<div class="stat-card"><div class="number">' + (data.draft_posts || 0) + '</div><div class="label">Чернеток</div></div>';
+
+            const recRes = await api('/api/recommendations/my-stats');
+            if (recRes && recRes.ok) {
+                const rec = await recRes.json();
+                document.getElementById('analytics-details').innerHTML =
+                    '<h2 style="margin: 20px 0 16px;">Воронка рекомендацій</h2><div class="stats-grid">' +
+                    '<div class="stat-card"><div class="number">' + (rec.total_recommendations || 0) + '</div><div class="label">Рекомендацій AI</div></div>' +
+                    '<div class="stat-card"><div class="number">' + (rec.details_viewed || 0) + '</div><div class="label">Переглядів деталей</div></div>' +
+                    '<div class="stat-card"><div class="number">' + (rec.bookings_created || 0) + '</div><div class="label">Букінгів</div></div>' +
+                    '<div class="stat-card"><div class="number">' + (rec.conversion_rate || 0) + '%</div><div class="label">Конверсія</div></div></div>';
+            }
+        }
+
+        // ── Bookings ──
+        async function loadBookings() {
+            const res = await api('/api/bookings/specialist');
+            if (!res) return;
+            if (!res.ok) {
+                document.getElementById('bookings-list').innerHTML = '<div class="alert alert-success">Поки немає букінгів</div>';
+                return;
+            }
+            const bookings = await res.json();
+            if (!bookings.length) {
+                document.getElementById('bookings-list').innerHTML = '<div class="alert alert-success">Поки немає букінгів. Вони зʼявляться коли клієнти запишуться через AI-чат.</div>';
+                return;
+            }
+            document.getElementById('bookings-list').innerHTML = '<table><thead><tr><th>Клієнт</th><th>Причина</th><th>Статус</th><th>Дата</th><th>Дії</th></tr></thead><tbody>' +
+                bookings.map(b => '<tr><td>' + escapeHtml(b.user_message || 'Клієнт') + '</td><td>' + escapeHtml(b.reason || '-') + '</td><td><span class="badge badge-' + escapeHtml(b.status) + '">' + escapeHtml(b.status) + '</span></td><td>' + new Date(b.created_at).toLocaleDateString('uk') + '</td><td>' +
+                (b.status === 'pending' ? '<button class="btn btn-success" style="padding:4px 10px;font-size:12px;" onclick="confirmBooking(' + b.id + ')">✅</button>' : '') +
+                (b.status === 'confirmed' ? '<button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="completeBooking(' + b.id + ')">✔️</button>' : '') +
+                (['pending','confirmed'].includes(b.status) ? '<button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="cancelBooking(' + b.id + ')">❌</button>' : '') +
+                '</td></tr>').join('') + '</tbody></table>';
+        }
+
+        async function confirmBooking(id) { await api('/api/bookings/' + id + '/confirm', { method: 'POST' }); loadBookings(); }
+        async function completeBooking(id) { await api('/api/bookings/' + id + '/complete', { method: 'POST' }); loadBookings(); }
+        async function cancelBooking(id) { if (confirm('Скасувати букінг?')) { await api('/api/bookings/' + id + '/cancel', { method: 'POST' }); loadBookings(); } }
+
+        // ── Profile ──
+        async function loadProfile() {
+            const res = await api('/api/auth/me');
+            if (!res || !res.ok) return;
+            const user = await res.json();
+            const name = escapeHtml(user.name || '');
+            const email = escapeHtml(user.email || '');
+            const sid = user.specialist_id != null ? user.specialist_id : '';
+            const pid = user.practitioner_id != null ? user.practitioner_id : '';
+            document.getElementById('profile-form').innerHTML =
+                '<div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
+                '<div class="form-group"><label>Ім\'я</label><input type="text" id="prof-name" value="' + name + '"></div>' +
+                '<div class="form-group"><label>Email</label><input type="email" id="prof-email" value="' + email + '" disabled></div>' +
+                '<div class="form-group"><label>Роль</label><input type="text" value="' + escapeHtml(user.role || '') + '" disabled></div>' +
+                '<div class="form-group"><label>Публічний профіль</label><a href="/specialists/' + sid + '" target="_blank" style="color:#667eea;">/specialists/' + sid + '</a></div>' +
+                '<div class="form-group"><label>Мій блог</label><a href="/blog/' + pid + '" target="_blank" style="color:#667eea;">/blog/' + pid + '</a></div>' +
+                '<div id="profile-alert"></div></div>';
+        }
+
+        // ── Social Links ──
+        async function loadSocial() {
+            const res = await api('/api/profile/social-links');
+            if (!res) return;
+            const data = res.ok ? await res.json() : { links: [], supported_platforms: ['telegram','instagram','youtube','facebook','tiktok','linkedin','behance','dribbble','twitter'] };
+            const links = data.links || [];
+            const platforms = data.supported_platforms || ['telegram','instagram','youtube','facebook','tiktok','linkedin'];
+
+            const existing = {};
+            links.forEach(l => { existing[l.platform] = l.username; });
+
+            const icons = {telegram:'✈️',instagram:'📷',youtube:'🎬',facebook:'📘',tiktok:'🎵',linkedin:'💼',behance:'🎨',dribbble:'🏀',twitter:'🐦'};
+
+            document.getElementById('social-form').innerHTML =
+                '<div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
+                platforms.map(p => '<div class="form-group" style="display:flex;align-items:center;gap:12px;"><span style="font-size:20px;width:30px;">' + (icons[p]||'🔗') + '</span><label style="width:100px;margin:0;">' + p + '</label><input type="text" id="social-' + p + '" value="' + escapeHtml(existing[p]||'') + '" placeholder="username (без @)" style="flex:1;"></div>').join('') +
+                '<button class="btn btn-primary" onclick="saveSocial()" style="margin-top:16px;">💾 Зберегти</button><div id="social-alert" style="margin-top:12px;"></div></div>';
+        }
+
+        async function saveSocial() {
+            const platforms = ['telegram','instagram','youtube','facebook','tiktok','linkedin','behance','dribbble','twitter'];
+            const body = {};
+            platforms.forEach(p => {
+                const el = document.getElementById('social-' + p);
+                if (el) { const val = el.value.trim(); if (val) body[p] = val.replace('@',''); }
+            });
+            const res = await api('/api/profile/social-links', { method: 'PUT', body: JSON.stringify(body) });
+            const alertEl = document.getElementById('social-alert');
+            if (res && res.ok) {
+                alertEl.innerHTML = '<div class="alert alert-success">Збережено!</div>';
+            } else {
+                alertEl.innerHTML = '<div class="alert alert-error">Помилка збереження</div>';
+            }
+        }
+
+        // ── AI Generator ──
+        async function generateAIPost() {
+            const topic = document.getElementById('ai-topic').value;
+            const keywords = document.getElementById('ai-keywords').value;
+            const tone = document.getElementById('ai-tone').value;
+            if (!topic) { alert('Введіть тему'); return; }
+
+            document.getElementById('ai-generate-btn').disabled = true;
+            document.getElementById('ai-generate-btn').textContent = '⏳ Генерація...';
+            document.getElementById('ai-result').innerHTML = '<div class="loading">AI пише пост... (10-30 секунд)</div>';
+
+            const res = await api('/api/blog/posts/ai/generate-draft', {
+                method: 'POST',
+                body: JSON.stringify({ topic, keywords: keywords.split(',').map(k=>k.trim()), tone, length: 'medium' })
+            });
+
+            document.getElementById('ai-generate-btn').disabled = false;
+            document.getElementById('ai-generate-btn').textContent = '🤖 Згенерувати пост';
+
+            if (res && res.ok) {
+                const post = await res.json();
+                document.getElementById('ai-result').innerHTML =
+                    '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
+                    '<h3>' + escapeHtml(post.title || 'Пост згенеровано') + '</h3><p style="color:#888;margin:8px 0;">Пост збережено як чернетку</p>' +
+                    '<button class="btn btn-primary" onclick="showSection(\'blog\')">Переглянути в блозі</button></div>';
+            } else {
+                document.getElementById('ai-result').innerHTML = '<div class="alert alert-error">Помилка генерації. Спробуйте ще раз.</div>';
+            }
+        }
+
+        // ── Init ──
+        async function init() {
+            const res = await api('/api/auth/me');
+            if (res && res.ok) {
+                const user = await res.json();
+                document.getElementById('user-name').textContent = user.name || user.email;
+                document.getElementById('user-role').textContent = user.role || '';
+                USER = user;
+            } else {
+                logout();
+                return;
+            }
+            loadBlog();
+        }
+
+        init();
+    </script>
+</body>
+</html>
