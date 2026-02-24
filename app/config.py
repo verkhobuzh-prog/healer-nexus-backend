@@ -12,14 +12,20 @@ load_dotenv(BASE_DIR / ".env")
 class Settings(BaseSettings):
     """Multi-project: one codebase, PROJECT_ID per instance (e.g. healer_nexus, eco-pulse)."""
     PROJECT_ID: str = "healer_nexus"
-    GEMINI_API_KEY: str
-    DATABASE_URL: str = "sqlite+aiosqlite:///./healer.db?charset=utf8"
+    GEMINI_API_KEY: str = ""
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///./healer.db?charset=utf8",
+        description="SQLite for local dev; set to PostgreSQL URL (e.g. from Render) for production.",
+    )
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_PROXY: str = ""  # e.g. socks5://user:pass@host:port or socks5://127.0.0.1:1080
     HEALER_SPECIALIST_BOT_TOKEN: str = ""
     HEALER_CONSUMER_BOT_TOKEN: str = ""
     ADMIN_CHAT_ID: str = ""
-    BASE_URL: str = Field(default="http://localhost:8000", env="BASE_URL")
+    BASE_URL: str = Field(
+        default="http://localhost:8000",
+        description="Public base URL; set via BASE_URL env (e.g. https://yourapp.onrender.com).",
+    )
     DEBUG: bool = False
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""

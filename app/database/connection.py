@@ -1,14 +1,25 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.config import settings
-from app.models.base import Base  # ✅ Імпорт Base
+from app.models.base import Base  # noqa: F401
+
+# Use asyncpg for PostgreSQL, aiosqlite for SQLite
+_raw_url = settings.DATABASE_URL.strip()
+if _raw_url.startswith("postgres://"):
+    _database_url = "postgresql+asyncpg://" + _raw_url[len("postgres://") :]
+elif _raw_url.startswith("postgresql://") and "+asyncpg" not in _raw_url:
+    _database_url = "postgresql+asyncpg://" + _raw_url[len("postgresql://") :]
+elif _raw_url.startswith("sqlite"):
+    _database_url = _raw_url if "+aiosqlite" in _raw_url else _raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+else:
+    _database_url = _raw_url
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _database_url,
     echo=False,
     future=True,
     connect_args=(
         {"check_same_thread": False, "timeout": 30}
-        if "sqlite" in settings.DATABASE_URL.lower()
+        if "sqlite" in _database_url.lower()
         else {}
     ),
     pool_pre_ping=True,
