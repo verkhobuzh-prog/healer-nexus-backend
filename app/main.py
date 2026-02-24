@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.connection import init_db
+from app.database.seed import seed_database
 from app.api.chat import router as chat_router
 from app.api.specialists import router as specialists_router
 from app.api.content import router as content_router
@@ -55,6 +56,7 @@ app.add_middleware(
 async def startup():
     # Важливо: цей код має бути з відступом (4 пробіли)
     await init_db()
+    await seed_database()
     if settings.GEMINI_API_KEY:
         logger.info(f"✅ Gemini Key loaded: {settings.GEMINI_API_KEY[:5]}***")
     else:
