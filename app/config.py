@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -8,6 +9,8 @@ from dotenv import load_dotenv
 # Визначаємо базову директорію та завантажуємо .env
 BASE_DIR = Path(__file__).parent.parent
 load_dotenv(BASE_DIR / ".env")
+
+logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     """Multi-project: one codebase, PROJECT_ID per instance (e.g. healer_nexus, eco-pulse)."""
@@ -55,8 +58,8 @@ if not JWT_SECRET_KEY:
         print("WARNING: JWT_SECRET_KEY not set, using random key (dev only)")
 settings.JWT_SECRET_KEY = JWT_SECRET_KEY
 
-# Валідація при старті
+# GEMINI_API_KEY: if missing, AI features are disabled; app does not crash
 if not settings.GEMINI_API_KEY:
-    print("❌ ПОМИЛКА: GEMINI_API_KEY не знайдено в .env")
+    logger.warning("GEMINI_API_KEY not set - AI features disabled")
 else:
-    print(f"✅ Конфіг завантажено. Ключ починається на: {settings.GEMINI_API_KEY[:5]}...")
+    logger.info("GEMINI_API_KEY is set")

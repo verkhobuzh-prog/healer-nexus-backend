@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.config import settings
 from app.models.base import Base  # noqa: F401
@@ -50,10 +52,12 @@ async def init_db():
     from app.models.blog_post_view import BlogPostView  # noqa: F401
     from app.models.blog_analytics_daily import BlogAnalyticsDaily  # noqa: F401
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    print("✅ База даних ініціалізована")
+    if os.getenv("ENVIRONMENT") != "production":
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ База даних ініціалізована")
+    else:
+        print("✅ Production: схема БД керується Alembic, create_all пропущено")
 
 async def get_db():
     """Dependency для FastAPI"""
