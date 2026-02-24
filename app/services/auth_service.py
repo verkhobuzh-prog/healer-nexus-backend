@@ -20,6 +20,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
+from app.services.blog_slug import generate_slug
 
 
 class AuthService:
@@ -75,10 +76,12 @@ class AuthService:
             self.session.add(specialist)
             await self.session.flush()
             specialist_id = specialist.id
+            base_slug = generate_slug(name)
             profile = PractitionerProfile(
                 specialist_id=specialist.id,
                 project_id=settings.PROJECT_ID,
                 is_active=True,
+                slug=f"{base_slug}-{specialist_id}" if base_slug else f"practitioner-{specialist_id}",
             )
             self.session.add(profile)
             await self.session.flush()

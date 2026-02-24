@@ -19,17 +19,42 @@ templates_dir = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
 
-@router.get("/specialists/{specialist_id}", response_class=HTMLResponse)
+async def _resolve_specialist(
+    db: AsyncSession,
+    slug_or_id: str,
+) -> Specialist | None:
+    """Resolve specialist by slug (PractitionerProfile.slug) or numeric ID."""
+    slug_clean = slug_or_id.strip()
+    # 1. Try numeric ID
+    try:
+        sid = int(slug_clean)
+        specialist = await db.get(Specialist, sid)
+        if specialist:
+            return specialist
+    except ValueError:
+        pass
+    # 2. Try by practitioner slug
+    r = await db.execute(
+        select(PractitionerProfile).where(PractitionerProfile.slug == slug_clean)
+    )
+    profile = r.scalar_one_or_none()
+    if not profile:
+        return None
+    return await db.get(Specialist, profile.specialist_id)
+
+
+@router.get("/specialists/{slug_or_id}", response_class=HTMLResponse)
 async def specialist_profile_page(
-    specialist_id: int,
+    slug_or_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Public profile page for a specialist."""
-    specialist = await db.get(Specialist, specialist_id)
+    """Public profile page for a specialist. Accepts slug or numeric ID."""
+    specialist = await _resolve_specialist(db, slug_or_id)
     if not specialist:
         return HTMLResponse("<h1>Спеціаліст не знайдений</h1>", status_code=404)
 
+    specialist_id = specialist.id
     r = await db.execute(
         select(PractitionerProfile).where(
             PractitionerProfile.specialist_id == specialist_id

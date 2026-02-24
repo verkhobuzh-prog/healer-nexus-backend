@@ -36,11 +36,23 @@ async def _resolve_practitioner(
     project_id: str,
 ) -> Optional[PractitionerProfile]:
     """
-    Resolve practitioner by slug. PractitionerProfile has no slug;
-    use id when practitioner_slug is numeric.
+    Resolve practitioner by slug first, then fallback to numeric ID.
     """
+    slug_clean = practitioner_slug.strip()
+    # 1. Try by slug (string)
+    r = await db.execute(
+        select(PractitionerProfile).where(
+            PractitionerProfile.slug == slug_clean,
+            PractitionerProfile.project_id == project_id,
+            PractitionerProfile.is_active == True,
+        )
+    )
+    profile = r.scalar_one_or_none()
+    if profile:
+        return profile
+    # 2. Fallback: numeric ID
     try:
-        pid = int(practitioner_slug.strip())
+        pid = int(slug_clean)
     except ValueError:
         return None
     r = await db.execute(

@@ -25,6 +25,7 @@ class PractitionerProfile(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
+    slug: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
 
     # 80/20 empathy rule: 80 = empathy/listening weight, 20 = advice weight (stored as ratio 0.0-1.0)
     empathy_ratio: Mapped[float] = mapped_column(
