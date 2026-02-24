@@ -8,7 +8,7 @@ asyncpg
 psycopg2-binary
 gunicorn
 python-dotenv==1.0.0
-google-genai==0.2.2
+google-generativeai
 openai
 httpx
 python-telegram-bot==20.7
@@ -16,4 +16,5 @@ cloudinary>=1.44
 python-multipart>=0.0.6
 jinja2>=3.1
 passlib[bcrypt]>=1.7.4
-python-jose[cryptography]>=3.3.0google-generativeai
+python-jose[cryptography]>=3.3.0
+google-generativeai>=0.3.0
