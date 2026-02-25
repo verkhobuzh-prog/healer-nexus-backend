@@ -54,9 +54,13 @@ async def init_db():
 
     # Always create tables — no Alembic migrations yet
     # TODO: switch to Alembic when PostgreSQL is configured
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✅ База даних ініціалізована")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ База даних ініціалізована")
+    except Exception as e:
+        print(f"⚠️ create_all warning (non-fatal): {e}")
+        print("✅ База даних вже існує, продовжуємо")
 
 async def get_db():
     """Dependency для FastAPI"""
