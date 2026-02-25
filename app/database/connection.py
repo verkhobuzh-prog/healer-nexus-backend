@@ -59,8 +59,15 @@ async def init_db():
             await conn.run_sync(Base.metadata.create_all)
         print("✅ База даних ініціалізована")
     except Exception as e:
-        print(f"⚠️ create_all warning (non-fatal): {e}")
-        print("✅ База даних вже існує, продовжуємо")
+        print(f"⚠️ create_all failed: {e}")
+        print("🔄 Видаляємо стару базу і створюємо заново...")
+        import os as _os
+        db_path = "./healer_nexus.db"
+        if _os.path.exists(db_path):
+            _os.remove(db_path)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ База даних створена заново")
 
 async def get_db():
     """Dependency для FastAPI"""
