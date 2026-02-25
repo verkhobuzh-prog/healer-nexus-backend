@@ -52,12 +52,11 @@ async def init_db():
     from app.models.blog_post_view import BlogPostView  # noqa: F401
     from app.models.blog_analytics_daily import BlogAnalyticsDaily  # noqa: F401
 
-    if os.getenv("ENVIRONMENT") != "production":
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        print("✅ База даних ініціалізована")
-    else:
-        print("✅ Production: схема БД керується Alembic, create_all пропущено")
+    # Always create tables — no Alembic migrations yet
+    # TODO: switch to Alembic when PostgreSQL is configured
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✅ База даних ініціалізована")
 
 async def get_db():
     """Dependency для FastAPI"""
