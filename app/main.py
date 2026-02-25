@@ -52,6 +52,40 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+# Діагностичні та системні ендпоінти — реєструємо ПЕРЕД роутерами, щоб не отримувати 404 на Render
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "platform": "Healer Nexus"}
+
+
+@app.get("/api/debug/db")
+async def debug_db():
+    """Тимчасовий діагностичний ендпоінт — видалити після дебагу"""
+    import traceback
+    from app.database.connection import async_session_maker
+    from sqlalchemy import text
+
+    results = {}
+    try:
+        async with async_session_maker() as session:
+            r = await session.execute(text("SELECT 1"))
+            results["connection"] = "ok"
+            try:
+                r = await session.execute(text("SELECT COUNT(*) FROM specialists"))
+                results["specialists_count"] = r.scalar()
+            except Exception as e:
+                results["specialists_error"] = str(e)
+            try:
+                r = await session.execute(text("SELECT COUNT(*) FROM users"))
+                results["users_count"] = r.scalar()
+            except Exception as e:
+                results["users_error"] = str(e)
+    except Exception as e:
+        results["error"] = str(e)
+        results["traceback"] = traceback.format_exc()
+    return results
+
+
 @app.on_event("startup")
 async def startup():
     # Важливо: цей код має бути з відступом (4 пробіли)
@@ -89,11 +123,7 @@ app.include_router(specialist_pages_router)
 app.include_router(dashboard_pages_router)
 app.include_router(seo_router)
 
-# 3. Ендпоінти здоров'я та статики
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "platform": "Healer Nexus"}
-
+# 3. Ендпоінти статики (health і debug/db вже зареєстровані вище)
 @app.get("/", include_in_schema=False)
 async def root():
     return FileResponse("app/static/index.html")
@@ -107,71 +137,5 @@ async def admin():
     return FileResponse("app/static/admin.html")
 
 
-@app.get("/api/debug/db")
-async def debug_db():
-    """Тимчасовий діагностичний ендпоінт — видалити після дебагу"""
-    import traceback
-    from app.database.connection import async_session_maker
-    from sqlalchemy import text
-
-    results = {}
-
-    try:
-        async with async_session_maker() as session:
-            # 1. Перевірка підключення
-            r = await session.execute(text("SELECT 1"))
-            results["connection"] = "ok"
-
-            # 2. Список таблиць
-            r = await session.execute(text("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"))
-            tables = [row[0] for row in r.fetchall()]
-            results["tables"] = tables
-            results["tables_count"] = len(tables)
-
-            # 3. Кількість спеціалістів
-            try:
-                r = await session.execute(text("SELECT COUNT(*) FROM specialists"))
-                results["specialists_count"] = r.scalar()
-            except Exception as e:
-                results["specialists_error"] = str(e)
-
-            # 4. Кількість юзерів
-            try:
-                r = await session.execute(text("SELECT COUNT(*) FROM users"))
-                results["users_count"] = r.scalar()
-            except Exception as e:
-                results["users_error"] = str(e)
-
-            # 5. Колонки таблиці specialists
-            try:
-                r = await session.execute(text("PRAGMA table_info(specialists)"))
-                cols = [{"name": row[1], "type": row[2]} for row in r.fetchall()]
-                results["specialists_columns"] = cols
-            except Exception as e:
-                results["specialists_columns_error"] = str(e)
-
-            # 6. Колонки таблиці blog_posts
-            try:
-                r = await session.execute(text("PRAGMA table_info(blog_posts)"))
-                cols = [{"name": row[1], "type": row[2]} for row in r.fetchall()]
-                results["blog_posts_columns"] = cols
-            except Exception as e:
-                results["blog_posts_columns_error"] = str(e)
-
-            # 7. Колонки таблиці users
-            try:
-                r = await session.execute(text("PRAGMA table_info(users)"))
-                cols = [{"name": row[1], "type": row[2]} for row in r.fetchall()]
-                results["users_columns"] = cols
-            except Exception as e:
-                results["users_columns_error"] = str(e)
-
-    except Exception as e:
-        results["connection_error"] = str(e)
-        results["traceback"] = traceback.format_exc()
-
-    return results
-
-
-# Монтування статики
+# Монтування статики (після всіх маршрутів)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

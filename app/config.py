@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     PROJECT_ID: str = "healer_nexus"
     GEMINI_API_KEY: str = ""
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./healer.db?charset=utf8",
+        default="sqlite:///./healer_nexus.db",
         description="SQLite for local dev; set to PostgreSQL URL (e.g. from Render) for production.",
     )
     TELEGRAM_BOT_TOKEN: str = ""

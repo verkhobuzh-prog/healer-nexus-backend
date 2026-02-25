@@ -62,8 +62,7 @@ class BlogScheduler:
                 if count > 0:
                     logger.info("Auto-published %d scheduled post(s)", count)
             except Exception as e:
-                logger.error("Failed to publish scheduled posts: %s", e)
-                raise
+                logger.error("Blog scheduler error (non-fatal): %s", e)
 
 
 blog_scheduler = BlogScheduler()
