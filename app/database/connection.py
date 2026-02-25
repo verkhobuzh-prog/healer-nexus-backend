@@ -52,22 +52,27 @@ async def init_db():
     from app.models.blog_post_view import BlogPostView  # noqa: F401
     from app.models.blog_analytics_daily import BlogAnalyticsDaily  # noqa: F401
 
-    # Always create tables — no Alembic migrations yet
-    # TODO: switch to Alembic when PostgreSQL is configured
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         print("✅ База даних ініціалізована")
     except Exception as e:
         print(f"⚠️ create_all failed: {e}")
-        print("🔄 Видаляємо стару базу і створюємо заново...")
-        import os as _os
-        db_path = "./healer_nexus.db"
-        if _os.path.exists(db_path):
-            _os.remove(db_path)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        print("✅ База даних створена заново")
+        # SQLite: stale DB with broken indexes — recreate from scratch
+        # seed_database() will repopulate the data
+        if "sqlite" in _database_url.lower():
+            print("🔄 Видаляємо стару базу і створюємо заново...")
+            db_path = "./healer_nexus.db"
+            if os.path.exists(db_path):
+                # Need to dispose engine connections before deleting file
+                await engine.dispose()
+                os.remove(db_path)
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("✅ База даних створена заново")
+        else:
+            print(f"⚠️ create_all warning (non-fatal): {e}")
+            print("✅ Продовжуємо з існуючою базою")
 
 async def get_db():
     """Dependency для FastAPI"""
