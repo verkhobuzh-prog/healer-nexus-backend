@@ -1,8 +1,11 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+logger = logging.getLogger(__name__)
 
 from app.api.deps import require_role, get_optional_user
 from app.database.connection import get_db
@@ -21,17 +24,16 @@ def _project_id() -> str:
     return getattr(settings, "PROJECT_ID", "healer_nexus")
 
 class SpecialistBase(BaseModel):
-    """Базова схема"""
+    """Базова схема — поля з default/Optional щоб не падати на даних з seed/БД."""
     name: str = Field(..., min_length=1, max_length=255)
     service_type: str = Field(..., description="healer | coach | 3d_modeling etc.")
     delivery_method: str = Field(default="human", description="human | ai_assisted | fully_ai")
     specialty: str = Field(..., max_length=200)
-    hourly_rate: int = Field(..., ge=0)
+    hourly_rate: int = Field(0, ge=0, description="0 якщо не задано")
     bio: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
-    # Налаштування для Pydantic v2 (замість class Config)
     model_config = ConfigDict(from_attributes=True)
 
 class SpecialistCreate(SpecialistBase):
@@ -51,19 +53,46 @@ class SpecialistCreate(SpecialistBase):
     ai_capabilities: Optional[Dict[str, Any]] = None
 
 class SpecialistResponse(SpecialistBase):
-    """Схема відповіді"""
+    """Схема відповіді — усі поля з default щоб серіалізація з ORM не падала."""
     id: int
     service_type: str
     service_types: Optional[List[str]] = None
-    is_verified: bool
-    is_active: bool
+    is_verified: bool = False
+    is_active: bool = True
     telegram_id: Optional[int] = None
     portfolio_url: Optional[str] = None
-    is_ai_powered: bool
+    is_ai_powered: bool = False
     ai_model: Optional[str] = None
     ai_capabilities: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("hourly_rate", mode="before")
+    @classmethod
+    def coerce_hourly_rate(cls, v: Any) -> Any:
+        """БД (наприклад SQLite/Postgres) може повертати float для INTEGER."""
+        if v is None:
+            return 0
+        if isinstance(v, float) and not isinstance(v, bool):
+            return int(v)
+        return v
+
+    @field_validator("service_types", mode="before")
+    @classmethod
+    def coerce_service_types(cls, v: Any) -> Any:
+        """JSON колонка може повертатися як str з деяких драйверів."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            import json
+            try:
+                parsed = json.loads(v)
+                return [str(x) for x in parsed] if isinstance(parsed, list) else [v]
+            except Exception:
+                return [v]
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        return None
 
 
 class SpecialistUpdate(BaseModel):
@@ -100,12 +129,26 @@ async def get_specialists(
     db: AsyncSession = Depends(get_db)
 ):
     """Отримання списку з фільтром по service_type"""
-    query = select(Specialist).where(Specialist.is_active == True)
-    if service_type:
-        query = query.where(Specialist.service_type == service_type)
-    
-    result = await db.execute(query)
-    return result.scalars().all()
+    try:
+        query = select(Specialist).where(Specialist.is_active == True)
+        if service_type:
+            query = query.where(Specialist.service_type == service_type)
+
+        result = await db.execute(query)
+        specialists = result.scalars().all()
+
+        for s in specialists:
+            logger.info(
+                "Specialist id=%s name=%s service_type=%s service_types=%s delivery_method=%s hourly_rate=%s (type=%s)",
+                s.id, s.name, getattr(s, "service_type", "N/A"), getattr(s, "service_types", "N/A"),
+                getattr(s, "delivery_method", "N/A"), getattr(s, "hourly_rate", "N/A"), type(getattr(s, "hourly_rate", None)).__name__,
+            )
+
+        return specialists
+    except Exception as e:
+        import traceback
+        logger.error("GET /specialists error: %s\n%s", e, traceback.format_exc())
+        raise
 
 
 @router.get("/specialists/{specialist_id}", response_model=SpecialistResponse)

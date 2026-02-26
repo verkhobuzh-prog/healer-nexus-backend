@@ -5,12 +5,12 @@
 
 import logging
 from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.connection import async_session_maker
 from app.models.user import User
 from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
-from app.core.security import hash_password
-from app.config import settings
+from app.core.security import hash_password  # ВИПРАВЛЕНО
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +25,13 @@ SEED_SPECIALISTS = [
         "specialist": {
             "name": "Лариса Козубаль",
             "specialty": "Вчитель математики",
+            "service_type": "teacher_math",
             "service_types": ["математика", "підготовка до ЗНО", "олімпіади"],
             "hourly_rate": 500,
             "bio": "Досвідчений вчитель математики з 20+ роками стажу. Підготовка до ЗНО, олімпіад, індивідуальні заняття.",
             "is_verified": True,
             "is_active": True,
-            "delivery_method": "online",
+            "delivery_method": "human",
         },
         "profile": {
             "slug": "larisa-kozubal",
@@ -50,12 +51,13 @@ SEED_SPECIALISTS = [
         "specialist": {
             "name": "Олена Світлодарська",
             "specialty": "Медитація та mindfulness",
+            "service_type": "healer",
             "service_types": ["медитація", "mindfulness", "дихальні практики", "релаксація"],
             "hourly_rate": 600,
             "bio": "Сертифікований інструктор з медитації. Допомагаю знайти внутрішній спокій та баланс через практики усвідомленості.",
             "is_verified": True,
             "is_active": True,
-            "delivery_method": "online",
+            "delivery_method": "human",
         },
         "profile": {
             "slug": "olena-meditation",
@@ -75,12 +77,13 @@ SEED_SPECIALISTS = [
         "specialist": {
             "name": "Михайло Крафтенко",
             "specialty": "UI/UX Дизайнер",
+            "service_type": "interior_designer",
             "service_types": ["UI дизайн", "UX дослідження", "прототипування", "брендинг"],
             "hourly_rate": 800,
             "bio": "UI/UX дизайнер з досвідом у продуктових компаніях. Створюю інтерфейси, які люди люблять використовувати.",
             "is_verified": True,
             "is_active": True,
-            "delivery_method": "online",
+            "delivery_method": "human",
         },
         "profile": {
             "slug": "mykhailo-design",
@@ -100,12 +103,13 @@ SEED_SPECIALISTS = [
         "specialist": {
             "name": "Анна Довженко",
             "specialty": "Психолог",
+            "service_type": "coach",
             "service_types": ["КПТ", "тривожність", "депресія", "самооцінка", "стосунки"],
             "hourly_rate": 700,
             "bio": "Клінічний психолог, КПТ-терапевт. Працюю з тривожністю, депресією, проблемами самооцінки та стосунків.",
             "is_verified": True,
             "is_active": True,
-            "delivery_method": "online",
+            "delivery_method": "human",
         },
         "profile": {
             "slug": "anna-psychology",
@@ -125,12 +129,13 @@ SEED_SPECIALISTS = [
         "specialist": {
             "name": "Ігор Енергетик",
             "specialty": "Енергопрактик",
+            "service_type": "healer",
             "service_types": ["енергетичні практики", "чакри", "рейкі", "цілительство"],
             "hourly_rate": 550,
             "bio": "Сертифікований рейкі-майстер. Працюю з енергетичним балансом, чакрами, відновленням після стресу.",
             "is_verified": True,
             "is_active": True,
-            "delivery_method": "both",
+            "delivery_method": "human",
         },
         "profile": {
             "slug": "ihor-energy",
@@ -147,61 +152,57 @@ async def seed_database():
     """Створює спеціалістів ТІЛЬКИ якщо таблиця specialists порожня."""
     async with async_session_maker() as session:
         result = await session.execute(select(func.count(Specialist.id)))
-        count = result.scalar() or 0
+        count = result.scalar()
 
         if count > 0:
-            logger.info("Database already has %d specialists — skipping seed", count)
+            logger.info(f"✅ Database already has {count} specialists — skipping seed")
             return
 
-        logger.info("Database is empty — seeding specialists...")
+        logger.info("🌱 Database is empty — seeding specialists...")
         created = 0
-        project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
 
         for data in SEED_SPECIALISTS:
             try:
                 user = User(
                     email=data["user"]["email"],
                     username=data["user"]["username"],
-                    password_hash=hash_password(data["user"]["password"]),
+                    password_hash=hash_password(data["user"]["password"]),  # ВИПРАВЛЕНО
                     role=data["user"]["role"],
                     is_active=True,
                 )
                 session.add(user)
                 await session.flush()
 
-                spec_data = data["specialist"]
                 specialist = Specialist(
-                    name=spec_data["name"],
-                    specialty=spec_data["specialty"],
-                    service_type="healer",
-                    service_types=spec_data.get("service_types") or [],
-                    hourly_rate=int(spec_data.get("hourly_rate", 0)),
-                    bio=spec_data.get("bio"),
-                    is_verified=spec_data.get("is_verified", False),
-                    is_active=spec_data.get("is_active", True),
-                    delivery_method=spec_data.get("delivery_method", "human"),
+                    name=data["specialist"]["name"],
+                    specialty=data["specialist"]["specialty"],
+                    service_type=data["specialist"]["service_type"],
+                    service_types=data["specialist"]["service_types"],
+                    hourly_rate=data["specialist"]["hourly_rate"],
+                    bio=data["specialist"]["bio"],
+                    is_verified=data["specialist"]["is_verified"],
+                    is_active=data["specialist"]["is_active"],
+                    delivery_method=data["specialist"].get("delivery_method", "human"),
                     user_id=user.id,
                 )
                 session.add(specialist)
                 await session.flush()
 
-                prof_data = data["profile"]
                 profile = PractitionerProfile(
                     specialist_id=specialist.id,
-                    project_id=project_id,
-                    slug=prof_data.get("slug"),
-                    empathy_ratio=prof_data.get("empathy_ratio", 0.8),
-                    style=prof_data.get("style", "calm"),
-                    unique_story=prof_data.get("unique_story") or None,
-                    social_links=prof_data.get("social_links") or {},
+                    slug=data["profile"]["slug"],
+                    empathy_ratio=data["profile"].get("empathy_ratio", 0.8),
+                    style=data["profile"].get("style", "warm"),
+                    unique_story=data["profile"].get("unique_story", ""),
+                    social_links=data["profile"].get("social_links", {}),
                     is_active=True,
                 )
                 session.add(profile)
                 created += 1
-                logger.info("  %s (%s)", spec_data["name"], spec_data["specialty"])
+                logger.info(f"  ✅ {data['specialist']['name']} ({data['specialist']['specialty']})")
             except Exception as e:
-                logger.error("  Failed to seed %s: %s", data["specialist"]["name"], e)
+                logger.error(f"  ❌ Failed to seed {data['specialist']['name']}: {e}")
                 continue
 
         await session.commit()
-        logger.info("Seed complete: %d/%d specialists created", created, len(SEED_SPECIALISTS))
+        logger.info(f"🌱 Seed complete: {created}/{len(SEED_SPECIALISTS)} specialists created")
