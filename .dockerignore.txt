@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.md
+.vscode
+.idea
+legacy_backend_DO_NOT_USE
+alembic/versions/__pycache__
