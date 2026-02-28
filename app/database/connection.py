@@ -4,26 +4,33 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from app.config import settings
 from app.models.base import Base  # noqa: F401
 
-# Use asyncpg for PostgreSQL, aiosqlite for SQLite
 _raw_url = settings.DATABASE_URL.strip()
+
+# Detect Cloud SQL socket path from env
+_cloudsql_instance = os.getenv("CLOUD_SQL_CONNECTION_NAME", "")
+_connect_args = {}
+
 if _raw_url.startswith("postgres://"):
-    _database_url = "postgresql+asyncpg://" + _raw_url[len("postgres://") :]
+    _database_url = "postgresql+asyncpg://" + _raw_url[len("postgres://"):]
 elif _raw_url.startswith("postgresql://") and "+asyncpg" not in _raw_url:
-    _database_url = "postgresql+asyncpg://" + _raw_url[len("postgresql://") :]
+    _database_url = "postgresql+asyncpg://" + _raw_url[len("postgresql://"):]
 elif _raw_url.startswith("sqlite"):
     _database_url = _raw_url if "+aiosqlite" in _raw_url else _raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    _connect_args = {"check_same_thread": False, "timeout": 30}
 else:
     _database_url = _raw_url
+
+# For Cloud Run + Cloud SQL: pass socket path via connect_args
+if _cloudsql_instance and "sqlite" not in _database_url.lower():
+    socket_path = f"/cloudsql/{_cloudsql_instance}"
+    _connect_args = {"host": socket_path}
+    print(f"Cloud SQL socket: {socket_path}")
 
 engine = create_async_engine(
     _database_url,
     echo=False,
     future=True,
-    connect_args=(
-        {"check_same_thread": False, "timeout": 30}
-        if "sqlite" in _database_url.lower()
-        else {}
-    ),
+    connect_args=_connect_args,
     pool_pre_ping=True,
 )
 
@@ -32,6 +39,7 @@ async_session_maker = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+
 
 async def init_db():
     """Ініціалізація бази даних — імпортуємо всі моделі перед create_all."""
@@ -58,13 +66,10 @@ async def init_db():
         print("✅ База даних ініціалізована")
     except Exception as e:
         print(f"⚠️ create_all failed: {e}")
-        # SQLite: stale DB with broken indexes — recreate from scratch
-        # seed_database() will repopulate the data
         if "sqlite" in _database_url.lower():
             print("🔄 Видаляємо стару базу і створюємо заново...")
             db_path = "./healer_nexus.db"
             if os.path.exists(db_path):
-                # Need to dispose engine connections before deleting file
                 await engine.dispose()
                 os.remove(db_path)
             async with engine.begin() as conn:
@@ -73,6 +78,7 @@ async def init_db():
         else:
             print(f"⚠️ create_all warning (non-fatal): {e}")
             print("✅ Продовжуємо з існуючою базою")
+
 
 async def get_db():
     """Dependency для FastAPI"""
