@@ -39,3 +39,10 @@ __pycache__/
 *.pyo
 # Logs
 *.log
+
+*.zip
+__pycache__/
+*.pyc
+*.bak
+.env
+healer_nexus.db
