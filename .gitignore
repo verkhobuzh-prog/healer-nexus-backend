@@ -46,3 +46,10 @@ __pycache__/
 *.bak
 .env
 healer_nexus.db
+
+*.zip
+__pycache__/
+*.pyc
+*.bak
+.env
+healer_nexus.db
