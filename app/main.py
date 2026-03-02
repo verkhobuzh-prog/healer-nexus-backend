@@ -1,11 +1,21 @@
+"""
+Healer Nexus — Main Application
+Fixed: removed debug endpoints, GEMINI_ENABLED guard on scheduler, clean startup
+"""
+
 import logging
 import os
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.database.connection import init_db
 from app.database.seed import seed_database
+from app.config import settings
+
+# Routers
 from app.api.chat import router as chat_router
 from app.api.specialists import router as specialists_router
 from app.api.content import router as content_router
@@ -22,26 +32,29 @@ from app.api.recommendation_router import router as recommendation_router
 from app.api.specialist_pages_router import router as specialist_pages_router
 from app.api.dashboard_pages_router import router as dashboard_pages_router
 from app.api.seo_router import router as seo_router
+
+# Background tasks
 from app.services.blog_scheduler import blog_scheduler
 from app.services.blog_analytics_aggregator import blog_analytics_aggregator
-from app.config import settings
 
-# 1. Налаштування логування (ЗАВЖДИ ВГОРІ)
+# Logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
+# --- App ---
 app = FastAPI(
     title="Healer Nexus Platform",
     description="Платформа для цілителів, коучів, вчителів та дизайнерів",
-    version="1.0.0"
+    version="1.0.0",
 )
 
+# --- CORS ---
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:8000"
+    "http://localhost:3000,http://localhost:8000",
 ).split(",")
 
 app.add_middleware(
@@ -52,60 +65,43 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# Діагностичні та системні ендпоінти — реєструємо ПЕРЕД роутерами, щоб не отримувати 404 на Render
+
+# --- Health (no auth, no debug info) ---
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "platform": "Healer Nexus"}
 
 
-@app.get("/api/debug/db")
-async def debug_db():
-    """Тимчасовий діагностичний ендпоінт — видалити після дебагу"""
-    import traceback
-    from app.database.connection import async_session_maker
-    from sqlalchemy import text
-
-    results = {}
-    try:
-        async with async_session_maker() as session:
-            r = await session.execute(text("SELECT 1"))
-            results["connection"] = "ok"
-            try:
-                r = await session.execute(text("SELECT COUNT(*) FROM specialists"))
-                results["specialists_count"] = r.scalar()
-            except Exception as e:
-                results["specialists_error"] = str(e)
-            try:
-                r = await session.execute(text("SELECT COUNT(*) FROM users"))
-                results["users_count"] = r.scalar()
-            except Exception as e:
-                results["users_error"] = str(e)
-    except Exception as e:
-        results["error"] = str(e)
-        results["traceback"] = traceback.format_exc()
-    return results
-
-
+# --- Startup / Shutdown ---
 @app.on_event("startup")
 async def startup():
-    # Важливо: цей код має бути з відступом (4 пробіли)
     await init_db()
     await seed_database()
-    if settings.GEMINI_API_KEY:
-        logger.info(f"✅ Gemini Key loaded: {settings.GEMINI_API_KEY[:5]}***")
+
+    # Gemini status
+    if settings.GEMINI_ENABLED:
+        logger.info("Gemini AI: enabled")
     else:
-        logger.error("❌ GEMINI_API_KEY IS MISSING!")
-    logger.info("✅ База даних готова та синхронізована")
-    await blog_scheduler.start()
+        logger.info("Gemini AI: disabled (GEMINI_ENABLED=false or no API key)")
+
+    # Blog scheduler uses Gemini for auto-generation — only start if AI enabled
+    if settings.GEMINI_ENABLED:
+        await blog_scheduler.start()
+
+    # Analytics aggregator doesn't need Gemini — always start
     await blog_analytics_aggregator.start()
+
+    logger.info("Healer Nexus started")
 
 
 @app.on_event("shutdown")
 async def shutdown():
     await blog_analytics_aggregator.stop()
-    await blog_scheduler.stop()
+    if settings.GEMINI_ENABLED:
+        await blog_scheduler.stop()
 
-# 2. Реєстрація API маршрутів
+
+# --- API Routers ---
 app.include_router(chat_router, prefix="/api")
 app.include_router(specialists_router, prefix="/api")
 app.include_router(content_router, prefix="/api")
@@ -123,19 +119,22 @@ app.include_router(specialist_pages_router)
 app.include_router(dashboard_pages_router)
 app.include_router(seo_router)
 
-# 3. Ендпоінти статики (health і debug/db вже зареєстровані вище)
+
+# --- Static pages ---
 @app.get("/", include_in_schema=False)
 async def root():
     return FileResponse("app/static/index.html")
 
+
 @app.get("/tracker", include_in_schema=False)
 async def tracker():
     return FileResponse("app/static/tracker.html")
+
 
 @app.get("/admin", include_in_schema=False)
 async def admin():
     return FileResponse("app/static/admin.html")
 
 
-# Монтування статики (після всіх маршрутів)
+# Static files (mount AFTER all routes)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
