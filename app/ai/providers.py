@@ -1,325 +1,336 @@
 """
-Healer Nexus — AI Provider (Gemini)
-Fixed: GeminiProvider as proper class, genai.configure(), model gemini-2.0-flash
+Healer Nexus - AI Provider (google-genai v1.65+)
+Migrated from deprecated google.generativeai to google.genai
+Model: gemini-2.5-flash
 """
 
-import asyncio
-import logging
-from typing import Optional
+from __future__ import annotations
 
-import google.generativeai as genai
-from sqlalchemy import select
+import logging
+from typing import Any, Optional
+
+from google import genai
+from google.genai import types
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.specialist import Specialist
-from app.models.practitioner_profile import PractitionerProfile
-from app.ai.self_reflection import reflection_engine
-from app.ai.prompts import EMPATHY_RULE, ETHICAL_INSTRUCTION
-from app.services.chat_tools import CHAT_TOOLS, TOOL_SYSTEM_PROMPT_ADDITION
-from app.services.chat_tool_executor import ChatToolExecutor
 
 logger = logging.getLogger(__name__)
 
-# --- Configure Gemini API key at module level ---
-if settings.GEMINI_API_KEY:
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    logger.info("Gemini API configured")
-else:
-    logger.warning("GEMINI_API_KEY not set — GeminiProvider will fail on use")
+# --- Client init ---
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
+MODEL_NAME = "gemini-2.5-flash"
 
-# --- Helper (module-level function, NOT a method) ---
-def _contents_from_history(history: list, system_prompt: str, last_message: str):
-    """Build Gemini contents: system + history + user message."""
-    contents = []
-    if system_prompt:
-        contents.append(
-            genai.protos.Content(
-                role="user",
-                parts=[genai.protos.Part(text=system_prompt)],
-            )
-        )
-    for msg in (history or [])[-10:]:
-        role = "user" if msg.get("role") == "user" else "model"
-        text = (msg.get("content") or "").strip()
-        if text:
-            contents.append(
-                genai.protos.Content(role=role, parts=[genai.protos.Part(text=text)])
-            )
-    if last_message:
-        contents.append(
-            genai.protos.Content(
-                role="user",
-                parts=[genai.protos.Part(text=last_message)],
-            )
-        )
-    return contents
-
-
-# --- Role prompts ---
+# --- System prompts per role ---
 ROLE_PROMPTS = {
-    "healer": "Ти - духовний цілитель 🧘. Допомагаєш з медитацією.",
-    "coach": "Ти - коуч 👋. Працюєш з розвитком.",
-    "teacher_math": "Ти - вчитель математики 📐.",
-    "teacher_ukrainian": "Ти - вчитель української 📚.",
-    "interior_designer": "Ти - дизайнер інтер'єрів 🛋️.",
-    "3d_modeling": "Ти - 3D спеціаліст 🎨.",
-    "web_development": "Ти - веб-розробник 💻.",
-    "default": "Ти - AI асистент Healer Nexus 🌟.",
+    "default": (
+        "You are a friendly AI assistant of the Healer Nexus platform. "
+        "You help people find specialists: healers, psychologists, "
+        "teachers, designers, coaches. Answer in Ukrainian. "
+        "Be empathetic and attentive to people's needs."
+    ),
+    "healer": (
+        "You are an AI assistant focused on healing and energy practices. "
+        "Help find the right healer. Answer in Ukrainian."
+    ),
+    "psychologist": (
+        "You are an AI assistant focused on psychological support. "
+        "Help find a psychologist or coach. Answer in Ukrainian."
+    ),
+    "teacher": (
+        "You are an AI assistant focused on education. "
+        "Help find a teacher or tutor. Answer in Ukrainian."
+    ),
+    "designer": (
+        "You are an AI assistant focused on design. "
+        "Help find a designer. Answer in Ukrainian."
+    ),
 }
 
 
+def _build_contents(message, history):
+    """Convert chat history + new message to google.genai format."""
+    contents = []
+    for msg in history:
+        role = "user" if msg["role"] == "user" else "model"
+        contents.append(
+            types.Content(
+                role=role,
+                parts=[types.Part.from_text(text=msg["content"])],
+            )
+        )
+    contents.append(
+        types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=message)],
+        )
+    )
+    return contents
+
+
+def _build_tools():
+    """Gemini function calling tools for specialist search and booking."""
+    return [
+        types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(
+                    name="search_specialists",
+                    description="Search specialists on the platform by keywords",
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "query": types.Schema(
+                                type=types.Type.STRING,
+                                description="Search keywords",
+                            ),
+                            "specialty": types.Schema(
+                                type=types.Type.STRING,
+                                description="Specialist type",
+                            ),
+                        },
+                        required=["query"],
+                    ),
+                ),
+                types.FunctionDeclaration(
+                    name="get_specialist_details",
+                    description="Get detailed info about a specialist by ID",
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "specialist_id": types.Schema(
+                                type=types.Type.INTEGER,
+                                description="Specialist ID",
+                            ),
+                        },
+                        required=["specialist_id"],
+                    ),
+                ),
+                types.FunctionDeclaration(
+                    name="create_booking",
+                    description="Create a booking with a specialist",
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            "specialist_id": types.Schema(
+                                type=types.Type.INTEGER,
+                                description="Specialist ID",
+                            ),
+                            "reason": types.Schema(
+                                type=types.Type.STRING,
+                                description="Reason for visit",
+                            ),
+                        },
+                        required=["specialist_id"],
+                    ),
+                ),
+            ]
+        )
+    ]
+
+
 class GeminiProvider:
-    """Gemini-based AI provider with function calling support."""
+    """AI provider based on Gemini API (google-genai)."""
 
     def __init__(self):
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.model = MODEL_NAME
+        logger.info("GeminiProvider initialized: %s", self.model)
 
-    async def generate_response(
-        self,
-        message: str,
-        history: list,
-        role: str = "default",
-        user_id: int = 0,
-        db: Optional[AsyncSession] = None,
-    ) -> dict:
-        """Generate response with self-reflection and specialist search."""
+    async def generate_response(self, message, history, role="default", user_id=0, db=None):
+        """Main entry: generate response with optional function calling."""
+        detected_service = self._detect_service(message)
 
-        # 1. Self-reflection analysis
-        detected_service, confidence = reflection_engine.detect_service(message)
-        user_intent = reflection_engine.classify_intent(message)
-        anxiety_score = reflection_engine.calculate_anxiety_score(message)
-
-        logger.info(
-            "Analysis: service=%s(%.2f), intent=%s, anxiety=%.2f",
-            detected_service, confidence, user_intent.value, anxiety_score,
-        )
-
-        response_mode = reflection_engine.get_response_mode(user_intent, anxiety_score)
-
-        # 2. Search specialists from DB (fallback when not using tools)
         top_specialists = []
         if db:
             try:
-                result = await db.execute(
-                    select(Specialist)
-                    .where(
-                        Specialist.service_type == detected_service,
-                        Specialist.is_active == True,
-                    )
-                    .order_by(Specialist.hourly_rate)
-                    .limit(3)
-                )
-                specialists = result.scalars().all()
-                top_specialists = [
-                    {
-                        "id": s.id,
-                        "name": s.name,
-                        "specialty": s.specialty,
-                        "rate": s.hourly_rate,
-                        "delivery": s.delivery_method,
-                        "is_ai": s.is_ai_powered,
-                    }
-                    for s in specialists
-                ]
-                logger.info("Found %d specialists for %s", len(top_specialists), detected_service)
+                top_specialists = await self._search_specialists_db(message, db)
             except Exception as e:
-                logger.error("DB query failed: %s", e)
+                logger.warning("Specialist search failed: %s", e)
 
-        # 3. AI text: tool-based flow when db available
-        ai_text = ""
-        if db and user_id:
-            try:
-                ai_text, tool_specialists = await self._gemini_generate_with_tools(
-                    message, history, detected_service, db, user_id
-                )
-                if tool_specialists:
-                    top_specialists = tool_specialists
-            except Exception as e:
-                logger.warning("Tool-based generation failed, falling back: %s", e)
-
-        if not ai_text:
-            ai_text = await self._gemini_generate(
+        try:
+            ai_text = await self._gemini_generate_with_tools(
                 message, history, detected_service, top_specialists, db=db
             )
-
-        # 4. Smart link
-        smart_link = reflection_engine.generate_smart_link(
-            detected_service,
-            top_specialists[0]["name"] if top_specialists else None,
-            response_mode,
-        )
+        except Exception as e:
+            logger.warning("Tool generation failed: %s, falling back", e)
+            try:
+                ai_text = await self._gemini_generate(
+                    message, history, detected_service, top_specialists, db=db
+                )
+            except Exception as e2:
+                logger.error("Gemini generation failed: %s", e2)
+                raise
 
         return {
             "text": ai_text,
             "metadata": {
                 "detected_service": detected_service,
-                "confidence": confidence,
-                "user_intent": user_intent.value,
-                "anxiety_score": anxiety_score,
-                "response_mode": response_mode.value,
-                "smart_link": smart_link,
-                "top_specialists": top_specialists,
-                "show_buttons": response_mode.value != "listening",
+                "confidence": 0.8 if detected_service != "general" else 0.5,
+                "user_intent": detected_service,
+                "anxiety_score": 0.0,
+                "response_mode": "empathetic",
+                "smart_link": "/specialists?type=" + detected_service,
+                "top_specialists": [
+                    {"id": s.id, "name": s.name, "specialty": s.specialty, "hourly_rate": s.hourly_rate}
+                    for s in top_specialists[:3]
+                ],
+                "show_buttons": len(top_specialists) > 0,
             },
         }
 
-    async def _gemini_generate_with_tools(
-        self,
-        message: str,
-        history: list,
-        service_type: str,
-        db: AsyncSession,
-        user_id: int,
-    ) -> tuple[str, list]:
-        """Generate with tool loop; returns (text, top_specialists)."""
-        system_prompt = ROLE_PROMPTS.get(service_type, ROLE_PROMPTS["default"])
-        system_prompt += f"\n\n{EMPATHY_RULE}\n\n{ETHICAL_INSTRUCTION}\n\n{TOOL_SYSTEM_PROMPT_ADDITION}"
+    async def _gemini_generate_with_tools(self, message, history, detected_service, top_specialists, db=None):
+        """Generate with function calling tools."""
+        system_prompt = ROLE_PROMPTS.get(detected_service, ROLE_PROMPTS["default"])
 
-        project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
-        executor = ChatToolExecutor(db, project_id, user_id, conversation_id=None)
+        if top_specialists:
+            specs_info = "\n".join(
+                "- {} ({}), {} grn/h, ID: {}".format(s.name, s.specialty, s.hourly_rate, s.id)
+                for s in top_specialists[:5]
+            )
+            system_prompt += "\n\nAvailable specialists:\n" + specs_info + "\nRecommend suitable ones."
 
-        try:
-            model_with_tools = genai.GenerativeModel("gemini-2.0-flash", tools=CHAT_TOOLS)
-        except Exception:
-            model_with_tools = genai.GenerativeModel("gemini-2.0-flash", tools=[CHAT_TOOLS])
+        contents = _build_contents(message, history)
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            tools=_build_tools(),
+            temperature=0.7,
+            max_output_tokens=1024,
+        )
 
-        contents = _contents_from_history(history, system_prompt, message)
-        top_specialists = []
-        max_tool_rounds = 5
+        response = await client.aio.models.generate_content(
+            model=self.model, contents=contents, config=config,
+        )
 
-        while max_tool_rounds > 0:
-            max_tool_rounds -= 1
-            response = await asyncio.to_thread(model_with_tools.generate_content, contents)
-
-            if not response.candidates or not response.candidates[0].content.parts:
-                return (getattr(response, "text", None) or "", top_specialists)
-
-            parts = response.candidates[0].content.parts
-            function_calls = []
-            text_parts = []
-
-            for part in parts:
-                if getattr(part, "function_call", None):
-                    fc = part.function_call
-                    name = getattr(fc, "name", None) or ""
-                    args = dict(getattr(fc, "args", None) or {})
-                    if not hasattr(args, "items"):
-                        args = {}
-                    function_calls.append((part, name, args))
-                elif getattr(part, "text", None):
-                    text_parts.append(part.text)
-
-            if function_calls:
-                model_content = genai.protos.Content(
-                    role="model",
-                    parts=[p for p, _, _ in function_calls],
-                )
-                contents.append(model_content)
-
-                response_parts = []
-                for _, fc_name, fc_args in function_calls:
-                    result = await executor.execute_tool_call(fc_name, fc_args)
-                    if fc_name == "search_specialists" and isinstance(
-                        result.get("specialists"), list
-                    ):
-                        top_specialists = [
-                            {
-                                "id": s.get("id"),
-                                "name": s.get("name"),
-                                "specialty": s.get("specialty"),
-                                "rate": s.get("hourly_rate", 0),
-                                "delivery": s.get("delivery_method", "human"),
-                                "is_ai": False,
-                            }
-                            for s in result["specialists"]
-                        ]
-                    response_parts.append(
-                        genai.protos.Part(
-                            function_response=genai.protos.FunctionResponse(
-                                name=fc_name,
-                                response={"result": result},
-                            )
+        if response.candidates and response.candidates[0].content.parts:
+            for part in response.candidates[0].content.parts:
+                if part.function_call:
+                    tool_result = await self._execute_tool(
+                        part.function_call.name,
+                        dict(part.function_call.args) if part.function_call.args else {},
+                        db,
+                    )
+                    contents.append(response.candidates[0].content)
+                    contents.append(
+                        types.Content(
+                            role="user",
+                            parts=[types.Part.from_function_response(
+                                name=part.function_call.name,
+                                response={"result": tool_result},
+                            )],
                         )
                     )
-                contents.append(genai.protos.Content(role="user", parts=response_parts))
-                continue
-
-            return ("".join(text_parts).strip(), top_specialists)
-
-        return ("", top_specialists)
-
-    async def _gemini_generate(
-        self,
-        message: str,
-        history: list,
-        service_type: str,
-        specialists: list,
-        db: Optional[AsyncSession] = None,
-    ) -> str:
-        """Generate text via Gemini with optional practitioner profile personalization."""
-        system_prompt = ROLE_PROMPTS.get(service_type, ROLE_PROMPTS["default"])
-        system_prompt += f"\n\n{EMPATHY_RULE}"
-        system_prompt += f"\n\n{ETHICAL_INSTRUCTION}"
-
-        # Practitioner personalization
-        if db and specialists:
-            first_specialist_id = specialists[0].get("id") if specialists else None
-            if first_specialist_id is not None:
-                try:
-                    project_id = getattr(settings, "PROJECT_ID", "healer_nexus")
-                    result = await db.execute(
-                        select(PractitionerProfile)
-                        .where(
-                            PractitionerProfile.specialist_id == first_specialist_id,
-                            PractitionerProfile.project_id == project_id,
-                            PractitionerProfile.is_active == True,
-                        )
-                        .limit(1)
+                    follow_up = await client.aio.models.generate_content(
+                        model=self.model, contents=contents, config=config,
                     )
-                    profile = result.scalar_one_or_none()
-                    if profile:
-                        parts = []
-                        if profile.unique_story:
-                            parts.append(f"Історія практика: {profile.unique_story}")
-                        if profile.soft_cta_text:
-                            parts.append(f"М'який заклик до дії: {profile.soft_cta_text}")
-                        if profile.contact_link:
-                            parts.append(f"Посилання для контакту: {profile.contact_link}")
-                        if parts:
-                            empathy_prompt = "\n".join(parts)
-                            if profile.creator_signature:
-                                empathy_prompt += f"\n{profile.creator_signature}"
-                            system_prompt += f"\n\nПерсоналізація практика:\n{empathy_prompt}"
-                except Exception as e:
-                    logger.error("Practitioner profile fetch failed: %s", e)
+                    return follow_up.text or "Could not get response."
 
-        # Add specialists info to prompt
-        if specialists:
-            system_prompt += "\n\nДоступні спеціалісти:\n"
-            for spec in specialists:
-                method_emoji = "🤖" if spec.get("is_ai") else "👤"
-                system_prompt += (
-                    f"{method_emoji} {spec['name']} - {spec['specialty']} "
-                    f"({spec['rate']}₴/год, {spec['delivery']})\n"
-                )
+        return response.text or "Could not get response."
 
-        # Build context
-        context = f"{system_prompt}\n\nІсторія:\n"
-        for msg in history[-5:]:
-            context += f"{msg['role']}: {msg['content']}\n"
-        context += f"user: {message}\nassistant:"
+    async def _gemini_generate(self, message, history, detected_service, top_specialists, db=None):
+        """Simple generation without tools."""
+        system_prompt = ROLE_PROMPTS.get(detected_service, ROLE_PROMPTS["default"])
+
+        if top_specialists:
+            specs_info = "\n".join(
+                "- {} ({}), {} grn/h, ID: {}".format(s.name, s.specialty, s.hourly_rate, s.id)
+                for s in top_specialists[:5]
+            )
+            system_prompt += "\n\nAvailable specialists:\n" + specs_info + "\nRecommend suitable ones."
+
+        contents = _build_contents(message, history)
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.7,
+            max_output_tokens=1024,
+        )
 
         try:
-            response = await asyncio.to_thread(self.model.generate_content, context)
-            return response.text or ""
+            response = await client.aio.models.generate_content(
+                model=self.model, contents=contents, config=config,
+            )
+            return response.text or "Could not get response."
         except Exception as e:
             error_msg = str(e)
-            logger.error("Gemini API error: %s", error_msg[:200])
-            raise Exception(f"Gemini Error: {error_msg[:100]}")
+            logger.error("Gemini Error: %s", error_msg[:200])
+            raise Exception("Gemini Error: " + error_msg[:100])
+
+    async def _execute_tool(self, tool_name, args, db):
+        """Execute a function call from Gemini."""
+        try:
+            from app.services.chat_tool_executor import ChatToolExecutor
+            executor = ChatToolExecutor(db)
+
+            if tool_name == "search_specialists":
+                result = await executor.search_specialists(query=args.get("query", ""), specialty=args.get("specialty"))
+                return str(result)
+            elif tool_name == "get_specialist_details":
+                result = await executor.get_specialist_details(specialist_id=args.get("specialist_id", 0))
+                return str(result)
+            elif tool_name == "create_booking":
+                result = await executor.create_booking(specialist_id=args.get("specialist_id", 0), reason=args.get("reason", ""))
+                return str(result)
+            return "Unknown tool: " + tool_name
+        except Exception as e:
+            logger.error("Tool error (%s): %s", tool_name, e)
+            return "Tool error: " + str(e)[:100]
+
+    async def _search_specialists_db(self, message, db):
+        """Search specialists in DB by keywords."""
+        try:
+            from app.services.specialist_matcher import SpecialistMatcher
+            matcher = SpecialistMatcher(db)
+            return await matcher.search(message)
+        except ImportError:
+            from sqlalchemy import select, or_
+            from app.models.specialist import Specialist
+            keywords = message.lower().split()[:3]
+            if not keywords:
+                return []
+            conditions = []
+            for kw in keywords:
+                conditions.extend([
+                    Specialist.name.ilike("%" + kw + "%"),
+                    Specialist.specialty.ilike("%" + kw + "%"),
+                    Specialist.bio.ilike("%" + kw + "%"),
+                ])
+            result = await db.execute(
+                select(Specialist).where(Specialist.is_active == True).where(or_(*conditions)).limit(5)
+            )
+            return list(result.scalars().all())
+        except Exception as e:
+            logger.warning("DB search failed: %s", e)
+            return []
+
+    def _detect_service(self, message):
+        """Detect service type from message keywords."""
+        msg = message.lower()
+        kw = {
+            "healer": ["healer", "energy", "reiki", "chakr",
+                "\u0446\u0456\u043b\u0438\u0442\u0435\u043b\u044c", "\u0435\u043d\u0435\u0440\u0433\u0435\u0442\u0438\u043a",
+                "\u0440\u0435\u0439\u043a\u0456", "\u0447\u0430\u043a\u0440", "\u0435\u043d\u0435\u0440\u0433\u0456",
+                "\u0446\u0456\u043b\u0438\u0442\u0435\u043b\u044c\u0441\u0442\u0432", "\u0437\u0446\u0456\u043b\u0435\u043d"],
+            "psychologist": ["psycholog", "anxiety", "depress", "stress",
+                "\u043f\u0441\u0438\u0445\u043e\u043b\u043e\u0433", "\u0442\u0440\u0438\u0432\u043e\u0436\u043d",
+                "\u0434\u0435\u043f\u0440\u0435\u0441", "\u0441\u0442\u0440\u0435\u0441", "\u0442\u0435\u0440\u0430\u043f",
+                "\u043a\u043f\u0442", "\u0441\u0430\u043c\u043e\u043e\u0446\u0456\u043d\u043a", "\u0441\u0442\u0440\u0430\u0445"],
+            "teacher": ["teacher", "math", "tutor", "lesson",
+                "\u0432\u0447\u0438\u0442\u0435\u043b\u044c", "\u043c\u0430\u0442\u0435\u043c\u0430\u0442\u0438\u043a",
+                "\u0437\u043d\u043e", "\u0440\u0435\u043f\u0435\u0442\u0438\u0442\u043e\u0440", "\u0443\u0440\u043e\u043a",
+                "\u043e\u043b\u0456\u043c\u043f\u0456\u0430\u0434"],
+            "designer": ["design", "ui", "ux", "brand", "logo",
+                "\u0434\u0438\u0437\u0430\u0439\u043d", "\u0456\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441",
+                "\u0431\u0440\u0435\u043d\u0434\u0438\u043d\u0433", "\u043b\u043e\u0433\u043e\u0442\u0438\u043f"],
+            "coach": ["coach", "motivat", "goal",
+                "\u043a\u043e\u0443\u0447", "\u043c\u043e\u0442\u0438\u0432\u0430\u0446",
+                "\u0440\u043e\u0437\u0432\u0438\u0442\u043e\u043a", "\u0446\u0456\u043b\u0456"],
+        }
+        for service, words in kw.items():
+            if any(w in msg for w in words):
+                return service
+        return "general"
 
 
 def get_ai_provider():
-    """Factory function — returns GeminiProvider instance."""
+    """AI provider factory."""
     return GeminiProvider()
