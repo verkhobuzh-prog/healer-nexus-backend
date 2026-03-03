@@ -138,5 +138,20 @@ async def admin():
     return FileResponse("app/static/admin.html")
 
 
+@app.get("/login", include_in_schema=False)
+async def login_page():
+    return FileResponse("app/static/login.html")
+
+
+@app.get("/admin-dashboard", include_in_schema=False)
+async def admin_dashboard_page():
+    return FileResponse("app/static/dashboard.html")
+
+
+@app.get("/specialist-dashboard", include_in_schema=False)
+async def specialist_dashboard_page():
+    return FileResponse("app/templates/dashboard/specialist.html")
+
+
 # Static files (mount AFTER all routes)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

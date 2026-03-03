@@ -26,9 +26,6 @@
         .btn-design3d { border: 2px solid var(--design3d-color); color: var(--design3d-color); }
         .btn-design { border: 2px solid var(--design-color); color: var(--design-color); }
 
-        /* Мапа */
-        #map { height: 400px; border-radius: 25px; margin-bottom: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-
         /* Грід з картками */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
         .card { background: white; border-radius: 20px; padding: 20px; border-top: 8px solid #ccc; }
@@ -44,14 +41,19 @@
         .stat-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); text-align: center; }
         .stat-card h2 { margin: 0; font-size: 2rem; color: #2c3e50; }
         .stat-card p { margin: 8px 0 0; font-size: 0.9rem; color: #7f8c8d; }
-        .specialists-section { margin-bottom: 24px; }
-        .specialists-section h2 { margin-bottom: 12px; }
-        .specialist-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .specialist-card h3 { margin: 0 0 8px; font-size: 1.1rem; }
-        .specialist-card p { margin: 4px 0; font-size: 0.9rem; color: #555; }
     </style>
 </head>
 <body>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h1 style="font-size:24px;color:#2c3e50;">🛡️ Admin Dashboard</h1>
+        <button onclick="localStorage.clear();window.location.href='/login'" style="padding:8px 16px;background:#e74c3c;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Вийти</button>
+    </div>
+
+    <div style="margin-bottom:24px;">
+        <h2 style="margin-bottom:12px;">📋 Заявки спеціалістів</h2>
+        <div id="applications-list"><div style="color:#888;">Завантаження...</div></div>
+    </div>
 
     <div class="stats-grid">
         <div class="stat-card">
@@ -76,11 +78,6 @@
         </div>
     </div>
 
-    <div class="specialists-section">
-        <h2>Specialists (Dashboard API)</h2>
-        <div id="specialists-list"></div>
-    </div>
-
     <div class="filter-panel">
         <button class="filter-btn btn-all active" onclick="filterNiche('all')">Всі</button>
         <button class="filter-btn btn-healer" onclick="filterNiche('healer')">Цілителі</button>
@@ -88,19 +85,35 @@
         <button class="filter-btn btn-design" onclick="filterNiche('designer')">Дизайнери</button>
     </div>
 
-    <div id="map"></div>
+    <div class="map-container">
+        <button class="filter-btn btn-all" onclick="toggleMap()" id="map-toggle-btn">🗺️ Показати мапу</button>
+        <div id="map" style="display:none; height:400px; border-radius:25px; margin-top:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);"></div>
+    </div>
 
     <div id="grid" class="grid"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        const TOKEN = localStorage.getItem('access_token');
+        if (!TOKEN) window.location.href = '/login';
+
+        async function authFetch(url, options = {}) {
+            const res = await fetch(url, {
+                ...options,
+                headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json', ...(options.headers || {}) }
+            });
+            if (res.status === 401) { window.location.href = '/login'; return null; }
+            return res;
+        }
+
         let allData = [];
         const map = L.map('map').setView([50.45, 30.52], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let markers = [];
 
         async function load() {
-            const r = await fetch('/api/specialists');
+            const r = await authFetch('/api/specialists');
+            if (!r) return;
             allData = await r.json();
             render(allData);
         }
@@ -150,13 +163,27 @@
             }
         }
 
+        function toggleMap() {
+            const m = document.getElementById('map');
+            const btn = document.getElementById('map-toggle-btn');
+            if (m.style.display === 'none') {
+                m.style.display = 'block';
+                map.invalidateSize();
+                btn.textContent = '🗺️ Сховати мапу';
+            } else {
+                m.style.display = 'none';
+                btn.textContent = '🗺️ Показати мапу';
+            }
+        }
+
         load();
     </script>
 
     <script>
         async function loadDashboardStats() {
             try {
-                const response = await fetch('/api/dashboard/stats');
+                const response = await authFetch('/api/dashboard/stats');
+                if (!response) return;
                 const data = await response.json();
                 document.getElementById('total-users').textContent = data.total_users;
                 document.getElementById('total-conversations').textContent = data.total_conversations;
@@ -168,34 +195,53 @@
             }
         }
 
-        async function loadSpecialists() {
-            try {
-                const response = await fetch('/api/dashboard/specialists');
-                const data = await response.json();
-                const container = document.getElementById('specialists-list');
-                container.innerHTML = data.specialists.map(s => `
-                    <div class="specialist-card">
-                        <h3>${escapeHtml(s.name)}</h3>
-                        <p>${escapeHtml(s.specialty)}</p>
-                        <p>Rate: ${s.hourly_rate}₴/год</p>
-                        <p>Type: ${escapeHtml(s.service_type)}</p>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('Failed to load specialists:', error);
+        async function loadApplications() {
+            const res = await authFetch('/api/admin/applications');
+            if (!res) return;
+            const apps = await res.json();
+            const el = document.getElementById('applications-list');
+            if (!apps.length) {
+                el.innerHTML = '<div style="background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);color:#888;">Немає заявок</div>';
+                return;
+            }
+            el.innerHTML = '<table style="width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><thead><tr><th style="text-align:left;padding:12px;background:#f8f9fa;">Ім\'я</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Спеціальність</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Тип</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Досвід</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Ставка</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Статус</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Дії</th></tr></thead><tbody>' +
+                apps.map(a => {
+                    const statusColor = a.status === 'pending' ? '#fff3cd' : (a.status === 'approved' ? '#d4edda' : '#f8d7da');
+                    const statusText = a.status === 'pending' ? '⏳ Очікує' : (a.status === 'approved' ? '✅ Схвалено' : '❌ Відхилено');
+                    const actions = a.status === 'pending' ?
+                        '<button onclick="reviewApp(' + a.id + ',\'approved\')" style="padding:4px 10px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-right:4px;">✅ Схвалити</button>' +
+                        '<button onclick="reviewApp(' + a.id + ',\'rejected\')" style="padding:4px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">❌ Відхилити</button>'
+                        : '';
+                    return '<tr><td style="padding:12px;border-top:1px solid #eee;"><strong>' + escapeHtml(a.name) + '</strong><br><small style="color:#888;">' + escapeHtml(a.bio || '').substring(0, 80) + '</small></td><td style="padding:12px;border-top:1px solid #eee;">' + escapeHtml(a.specialty) + '</td><td style="padding:12px;border-top:1px solid #eee;">' + escapeHtml(a.service_type) + '</td><td style="padding:12px;border-top:1px solid #eee;">' + a.experience_years + ' р.</td><td style="padding:12px;border-top:1px solid #eee;">' + a.hourly_rate + '₴</td><td style="padding:12px;border-top:1px solid #eee;"><span style="background:' + statusColor + ';padding:4px 8px;border-radius:8px;font-size:12px;">' + statusText + '</span></td><td style="padding:12px;border-top:1px solid #eee;">' + actions + '</td></tr>';
+                }).join('') +
+                '</tbody></table>';
+        }
+
+        async function reviewApp(id, status) {
+            const comment = status === 'rejected' ? prompt('Причина відхилення:') : 'Welcome to Healer Nexus!';
+            if (status === 'rejected' && comment === null) return;
+            const res = await authFetch('/api/admin/applications/' + id, {
+                method: 'PUT',
+                body: JSON.stringify({ status: status, admin_comment: comment || '' })
+            });
+            if (res && res.ok) {
+                loadApplications();
+                load();
+            } else {
+                alert('Помилка обробки заявки');
             }
         }
 
-        function escapeHtml(text) {
-            if (text == null) return '';
+        function escapeHtml(s) {
+            if (s == null) return '';
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = s;
             return div.innerHTML;
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             loadDashboardStats();
-            loadSpecialists();
+            loadApplications();
             setInterval(loadDashboardStats, 30000);
         });
     </script>

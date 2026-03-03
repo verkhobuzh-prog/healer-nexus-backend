@@ -398,11 +398,16 @@
                 return;
             }
             const data = await res.json();
+            const stats = data.stats || data;
             document.getElementById('analytics-stats').innerHTML =
-                '<div class="stat-card"><div class="number">' + (data.total_views || 0) + '</div><div class="label">Переглядів</div></div>' +
-                '<div class="stat-card"><div class="number">' + (data.total_posts || 0) + '</div><div class="label">Постів</div></div>' +
-                '<div class="stat-card"><div class="number">' + (data.published_posts || 0) + '</div><div class="label">Опубліковано</div></div>' +
-                '<div class="stat-card"><div class="number">' + (data.draft_posts || 0) + '</div><div class="label">Чернеток</div></div>';
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">' +
+                '<div class="stat-card" style="border-left:4px solid #667eea;"><div class="number" style="font-size:40px;">' + (stats.total_views || 0) + '</div><div class="label">Переглядів всього</div></div>' +
+                '<div class="stat-card" style="border-left:4px solid #27ae60;"><div class="number" style="font-size:40px;">' + (stats.published_posts || 0) + '</div><div class="label">Опубліковано постів</div></div>' +
+                '</div>' +
+                '<div class="stats-grid">' +
+                '<div class="stat-card"><div class="number">' + (stats.total_posts || 0) + '</div><div class="label">Всього постів</div></div>' +
+                '<div class="stat-card"><div class="number">' + (stats.draft_posts || 0) + '</div><div class="label">Чернеток</div></div>' +
+                '</div>';
 
             const recRes = await api('/api/recommendations/my-stats');
             if (recRes && recRes.ok) {
@@ -413,6 +418,35 @@
                     '<div class="stat-card"><div class="number">' + (rec.details_viewed || 0) + '</div><div class="label">Переглядів деталей</div></div>' +
                     '<div class="stat-card"><div class="number">' + (rec.bookings_created || 0) + '</div><div class="label">Букінгів</div></div>' +
                     '<div class="stat-card"><div class="number">' + (rec.conversion_rate || 0) + '%</div><div class="label">Конверсія</div></div></div>';
+            } else {
+                document.getElementById('analytics-details').innerHTML = '';
+            }
+
+            // Daily views
+            const dailyRes = await api('/api/blog/analytics/dashboard/daily');
+            if (dailyRes && dailyRes.ok) {
+                const daily = await dailyRes.json();
+                if (daily.length) {
+                    const maxViews = Math.max(...daily.map(d => d.views_total || d.views || 0), 1);
+                    document.getElementById('analytics-details').innerHTML +=
+                        '<h2 style="margin:20px 0 12px;">Перегляди за останні дні</h2>' +
+                        '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:flex-end;gap:4px;height:120px;">' +
+                        daily.slice(-14).map(d => {
+                            const v = d.views_total || d.views || 0;
+                            return '<div style="flex:1;background:#667eea;border-radius:4px 4px 0 0;min-height:4px;height:' + Math.max((v / maxViews) * 100, 4) + '%;opacity:0.8;" title="' + d.date + ': ' + v + '"></div>';
+                        }).join('') +
+                        '</div>';
+                }
+            }
+
+            // Popular posts (from dashboard response)
+            if (data.popular_posts && data.popular_posts.length) {
+                document.getElementById('analytics-details').innerHTML +=
+                    '<h2 style="margin:20px 0 12px;">Топ постів</h2>' +
+                    '<div style="background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
+                    '<ul style="list-style:none;margin:0;padding:0;">' +
+                    data.popular_posts.slice(0, 5).map(p => '<li style="padding:8px 0;border-bottom:1px solid #eee;"><a href="/blog/' + (typeof USER !== \'undefined\' && USER && USER.practitioner_id != null ? USER.practitioner_id : \'\') + '/' + (p.slug || '') + '" target="_blank" style="color:#667eea;">' + escapeHtml(p.title || '') + '</a> — ' + (p.views || 0) + ' переглядів</li>').join('') +
+                    '</ul></div>';
             }
         }
 
