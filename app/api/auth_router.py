@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.security import decode_token
 from app.models.user import User
+from app.models.specialist_application import SpecialistApplication, ApplicationStatus
+from app.schemas.specialist_application import ApplicationCreate, ApplicationResponse
 from app.config import settings
 from app.database.connection import get_db
 from app.schemas.auth import (
@@ -212,9 +214,6 @@ async def me(
     brief = await _user_brief_from_user(db, user)
     return brief
 # --- Specialist Application Extension ---
-from sqlalchemy import select
-from app.models.specialist_application import SpecialistApplication
-from app.schemas.specialist_application import ApplicationCreate, ApplicationResponse
 @router.post("/apply-specialist", response_model=ApplicationResponse, status_code=201)
 async def apply_specialist(
     body: ApplicationCreate,
@@ -228,9 +227,9 @@ async def apply_specialist(
     existing = await db.execute(
         select(SpecialistApplication)
         .where(SpecialistApplication.user_id == user.id)
-        .where(SpecialistApplication.status == "pending")
+        .where(SpecialistApplication.status == ApplicationStatus.PENDING)
     )
-    if existing.scalar():
+    if existing.scalars().first():
         raise HTTPException(400, "You already have a pending application")
     application = SpecialistApplication(
         user_id=user.id,

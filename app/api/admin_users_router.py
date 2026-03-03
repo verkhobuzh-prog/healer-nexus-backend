@@ -1,4 +1,4 @@
-﻿"""
+"""
 Admin API: manage users, roles, specialist applications.
 Only accessible by admin role.
 """
@@ -46,10 +46,8 @@ async def list_users(
             {
                 "id": u.id,
                 "email": u.email,
-                "name": u.name,
+                "name": u.username,
                 "role": u.role,
-                "specialist_id": u.specialist_id,
-                "practitioner_id": u.practitioner_id,
                 "created_at": str(u.created_at) if hasattr(u, "created_at") else None,
             }
             for u in users
@@ -124,16 +122,14 @@ async def review_application(
         if not user:
             raise HTTPException(404, "User not found")
         specialist = Specialist(
-            project_id="healer_nexus",
+            user_id=application.user_id,
             name=application.name,
             specialty=application.specialty,
             service_type=application.service_type,
-            service_types=[application.specialty],
-            hourly_rate=application.hourly_rate,
             bio=application.bio,
+            hourly_rate=application.hourly_rate,
             is_verified=True,
             is_active=True,
-            delivery_method="human",
         )
         db.add(specialist)
         await db.flush()
@@ -150,8 +146,6 @@ async def review_application(
         db.add(profile)
         await db.flush()
         user.role = "practitioner"
-        user.specialist_id = specialist.id
-        user.practitioner_id = profile.id
     await db.commit()
     return {
         "message": f"Application {body.status}",

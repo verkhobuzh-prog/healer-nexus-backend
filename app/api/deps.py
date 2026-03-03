@@ -69,6 +69,13 @@ async def get_current_specialist(
     return specialist
 
 
+async def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    """Require admin role. Raises 403 if not admin."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
 def require_role(*roles: str):
     """Dependency factory: require user to have one of the given roles."""
 

@@ -51,6 +51,7 @@ async def init_db():
     from app.models.knowledge_base import KnowledgeBase  # noqa: F401
     from app.models.refresh_token import RefreshToken  # noqa: F401
     from app.models.specialist_recommendation import SpecialistRecommendation  # noqa: F401
+    from app.models.specialist_application import SpecialistApplication  # noqa: F401
     from app.models.practitioner_profile import PractitionerProfile  # noqa: F401
     from app.models.booking import Booking  # noqa: F401
     from app.models.blog_post import BlogPost  # noqa: F401
