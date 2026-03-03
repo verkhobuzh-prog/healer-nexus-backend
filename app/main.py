@@ -27,6 +27,7 @@ from app.api.blog_pages_router import router as blog_pages_router
 from app.api.blog_analytics_router import router as blog_analytics_router
 from app.api.booking_router import router as booking_router
 from app.api.auth_router import router as auth_router
+from app.api.admin_users_router import router as admin_users_router
 from app.api.profile_router import router as profile_router
 from app.api.recommendation_router import router as recommendation_router
 from app.api.specialist_pages_router import router as specialist_pages_router
@@ -113,6 +114,7 @@ app.include_router(blog_pages_router)
 app.include_router(blog_analytics_router)
 app.include_router(booking_router)
 app.include_router(auth_router)
+app.include_router(admin_users_router)
 app.include_router(profile_router)
 app.include_router(recommendation_router)
 app.include_router(specialist_pages_router)

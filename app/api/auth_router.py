@@ -211,3 +211,39 @@ async def me(
     """Return current user info from JWT."""
     brief = await _user_brief_from_user(db, user)
     return brief
+# --- Specialist Application Extension ---
+from sqlalchemy import select
+from app.models.specialist_application import SpecialistApplication
+from app.schemas.specialist_application import ApplicationCreate, ApplicationResponse
+@router.post("/apply-specialist", response_model=ApplicationResponse, status_code=201)
+async def apply_specialist(
+    body: ApplicationCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """User applies to become a specialist. Admin reviews later."""
+    if user.role == "practitioner":
+        raise HTTPException(400, "You are already a practitioner")
+    # Check no pending application
+    existing = await db.execute(
+        select(SpecialistApplication)
+        .where(SpecialistApplication.user_id == user.id)
+        .where(SpecialistApplication.status == "pending")
+    )
+    if existing.scalar():
+        raise HTTPException(400, "You already have a pending application")
+    application = SpecialistApplication(
+        user_id=user.id,
+        name=body.name,
+        specialty=body.specialty,
+        service_type=body.service_type,
+        bio=body.bio,
+        experience_years=body.experience_years,
+        motivation=body.motivation,
+        hourly_rate=body.hourly_rate,
+        contact_telegram=body.contact_telegram,
+    )
+    db.add(application)
+    await db.commit()
+    await db.refresh(application)
+    return application
