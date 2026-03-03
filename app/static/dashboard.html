@@ -204,17 +204,16 @@
                 el.innerHTML = '<div style="background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);color:#888;">Немає заявок</div>';
                 return;
             }
-            el.innerHTML = '<table style="width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><thead><tr><th style="text-align:left;padding:12px;background:#f8f9fa;">Ім\'я</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Спеціальність</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Тип</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Досвід</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Ставка</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Статус</th><th style="text-align:left;padding:12px;background:#f8f9fa;">Дії</th></tr></thead><tbody>' +
+            el.innerHTML = '<table><thead><tr><th>Ім\'я</th><th>Спеціальність</th><th>Тип</th><th>Досвід</th><th>Ставка</th><th>Статус</th><th>Дії</th></tr></thead><tbody>' +
                 apps.map(a => {
                     const statusColor = a.status === 'pending' ? '#fff3cd' : (a.status === 'approved' ? '#d4edda' : '#f8d7da');
                     const statusText = a.status === 'pending' ? '⏳ Очікує' : (a.status === 'approved' ? '✅ Схвалено' : '❌ Відхилено');
                     const actions = a.status === 'pending' ?
-                        '<button onclick="reviewApp(' + a.id + ',\'approved\')" style="padding:4px 10px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-right:4px;">✅ Схвалити</button>' +
-                        '<button onclick="reviewApp(' + a.id + ',\'rejected\')" style="padding:4px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">❌ Відхилити</button>'
+                        '<button onclick="reviewApp(' + a.id + ',\'approved\')" style="padding:4px 10px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-right:4px;">Схвалити</button>' +
+                        '<button onclick="reviewApp(' + a.id + ',\'rejected\')" style="padding:4px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Відхилити</button>'
                         : '';
-                    return '<tr><td style="padding:12px;border-top:1px solid #eee;"><strong>' + escapeHtml(a.name) + '</strong><br><small style="color:#888;">' + escapeHtml(a.bio || '').substring(0, 80) + '</small></td><td style="padding:12px;border-top:1px solid #eee;">' + escapeHtml(a.specialty) + '</td><td style="padding:12px;border-top:1px solid #eee;">' + escapeHtml(a.service_type) + '</td><td style="padding:12px;border-top:1px solid #eee;">' + a.experience_years + ' р.</td><td style="padding:12px;border-top:1px solid #eee;">' + a.hourly_rate + '₴</td><td style="padding:12px;border-top:1px solid #eee;"><span style="background:' + statusColor + ';padding:4px 8px;border-radius:8px;font-size:12px;">' + statusText + '</span></td><td style="padding:12px;border-top:1px solid #eee;">' + actions + '</td></tr>';
-                }).join('') +
-                '</tbody></table>';
+                    return '<tr><td><strong>' + escapeHtml(a.name) + '</strong></td><td>' + escapeHtml(a.specialty) + '</td><td>' + escapeHtml(a.service_type) + '</td><td>' + a.experience_years + ' р.</td><td>' + a.hourly_rate + ' грн</td><td><span style="background:' + statusColor + ';padding:4px 8px;border-radius:8px;font-size:12px;">' + statusText + '</span></td><td>' + actions + '</td></tr>';
+                }).join('') + '</tbody></table>';
         }
 
         async function reviewApp(id, status) {
@@ -224,12 +223,8 @@
                 method: 'PUT',
                 body: JSON.stringify({ status: status, admin_comment: comment || '' })
             });
-            if (res && res.ok) {
-                loadApplications();
-                load();
-            } else {
-                alert('Помилка обробки заявки');
-            }
+            if (res && res.ok) { loadApplications(); load(); }
+            else { alert('Помилка обробки заявки'); }
         }
 
         function escapeHtml(s) {

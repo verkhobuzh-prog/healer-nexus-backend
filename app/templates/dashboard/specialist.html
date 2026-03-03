@@ -99,6 +99,52 @@
 
         /* Loading */
         .loading { text-align: center; padding: 40px; color: #888; }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 400px 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        .skeleton-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .skeleton-line { height: 14px; margin-bottom: 10px; }
+        .skeleton-line.w60 { width: 60%; }
+        .skeleton-line.w40 { width: 40%; }
+        .skeleton-line.w80 { width: 80%; }
+        .skeleton-number { height: 32px; width: 80px; margin-bottom: 8px; }
+
+        .sparkline { display: inline-block; vertical-align: middle; margin-left: 8px; }
+        .sparkline svg { vertical-align: middle; }
+        .spark-up { color: #27ae60; }
+        .spark-down { color: #e74c3c; }
+        .spark-neutral { color: #95a5a6; }
+
+        .sticky-action {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: white;
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .sticky-action .icon { font-size: 24px; }
+        .sticky-action .text { flex: 1; font-size: 14px; color: #333; }
+        .sticky-action .text strong { color: #667eea; }
     </style>
 </head>
 <body>
@@ -140,26 +186,30 @@
 
         <!-- Content -->
         <div class="content">
+            <div class="sticky-action" id="action-card" style="display:none;">
+                <div class="icon" id="action-icon">💡</div>
+                <div class="text" id="action-text"></div>
+            </div>
             <!-- BLOG SECTION -->
             <div class="section active" id="section-blog">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                     <h1>📝 Мій блог</h1>
                     <button class="btn btn-primary" onclick="openCreatePost()">✍️ Написати пост</button>
                 </div>
-                <div id="blog-posts"><div class="loading">Завантаження...</div></div>
+                <div id="blog-posts"><div class="skeleton-card"><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w60"></div><div class="skeleton skeleton-line w40"></div></div></div>
             </div>
 
             <!-- ANALYTICS SECTION -->
             <div class="section" id="section-analytics">
                 <h1>📊 Аналітика</h1>
-                <div class="stats-grid" id="analytics-stats"></div>
+                <div class="stats-grid" id="analytics-stats"><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div></div>
                 <div id="analytics-details"></div>
             </div>
 
             <!-- BOOKINGS SECTION -->
             <div class="section" id="section-bookings">
                 <h1>📅 Мої букінги</h1>
-                <div id="bookings-list"><div class="loading">Завантаження...</div></div>
+                <div id="bookings-list"><div class="skeleton-card"><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w60"></div><div class="skeleton skeleton-line w40"></div></div></div>
             </div>
 
             <!-- PROFILE SECTION -->
@@ -398,10 +448,24 @@
                 return;
             }
             const data = await res.json();
+
+            const dailyData = [];
+            let dailyRaw = [];
+            try {
+                const dRes = await api('/api/blog/analytics/dashboard/daily');
+                if (dRes && dRes.ok) {
+                    const dd = await dRes.json();
+                    dailyRaw = dd;
+                    dd.forEach(d => dailyData.push(d.views_total || d.views || 0));
+                }
+            } catch (e) {}
+
+            const viewsSpark = sparkline(dailyData.slice(-14), '#667eea');
             const stats = data.stats || data;
+
             document.getElementById('analytics-stats').innerHTML =
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">' +
-                '<div class="stat-card" style="border-left:4px solid #667eea;"><div class="number" style="font-size:40px;">' + (stats.total_views || 0) + '</div><div class="label">Переглядів всього</div></div>' +
+                '<div class="stat-card" style="border-left:4px solid #667eea;"><div class="number" style="font-size:40px;">' + (stats.total_views || 0) + '</div><div class="label">Переглядів ' + viewsSpark + '</div></div>' +
                 '<div class="stat-card" style="border-left:4px solid #27ae60;"><div class="number" style="font-size:40px;">' + (stats.published_posts || 0) + '</div><div class="label">Опубліковано постів</div></div>' +
                 '</div>' +
                 '<div class="stats-grid">' +
@@ -422,21 +486,17 @@
                 document.getElementById('analytics-details').innerHTML = '';
             }
 
-            // Daily views
-            const dailyRes = await api('/api/blog/analytics/dashboard/daily');
-            if (dailyRes && dailyRes.ok) {
-                const daily = await dailyRes.json();
-                if (daily.length) {
-                    const maxViews = Math.max(...daily.map(d => d.views_total || d.views || 0), 1);
-                    document.getElementById('analytics-details').innerHTML +=
-                        '<h2 style="margin:20px 0 12px;">Перегляди за останні дні</h2>' +
-                        '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:flex-end;gap:4px;height:120px;">' +
-                        daily.slice(-14).map(d => {
-                            const v = d.views_total || d.views || 0;
-                            return '<div style="flex:1;background:#667eea;border-radius:4px 4px 0 0;min-height:4px;height:' + Math.max((v / maxViews) * 100, 4) + '%;opacity:0.8;" title="' + d.date + ': ' + v + '"></div>';
-                        }).join('') +
-                        '</div>';
-                }
+            // Daily views (bar chart — use dailyRaw from above)
+            if (dailyRaw.length) {
+                const maxViews = Math.max(...dailyRaw.map(d => d.views_total || d.views || 0), 1);
+                document.getElementById('analytics-details').innerHTML +=
+                    '<h2 style="margin:20px 0 12px;">Перегляди за останні дні</h2>' +
+                    '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;align-items:flex-end;gap:4px;height:120px;">' +
+                    dailyRaw.slice(-14).map(d => {
+                        const v = d.views_total || d.views || 0;
+                        return '<div style="flex:1;background:#667eea;border-radius:4px 4px 0 0;min-height:4px;height:' + Math.max((v / maxViews) * 100, 4) + '%;opacity:0.8;" title="' + d.date + ': ' + v + '"></div>';
+                    }).join('') +
+                    '</div>';
             }
 
             // Popular posts (from dashboard response)
@@ -559,6 +619,59 @@
             }
         }
 
+        function sparkline(data, color, width, height) {
+            if (typeof color === 'undefined') color = '#667eea';
+            if (typeof width === 'undefined') width = 80;
+            if (typeof height === 'undefined') height = 24;
+            if (!data || data.length < 2) return '';
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const range = max - min || 1;
+            const step = width / (data.length - 1);
+            const points = data.map((v, i) => (i * step).toFixed(1) + ',' + (height - ((v - min) / range) * (height - 4) - 2).toFixed(1));
+            const trend = data[data.length - 1] >= data[0] ? 'spark-up' : 'spark-down';
+            const arrow = data[data.length - 1] > data[0] ? '↑' : (data[data.length - 1] < data[0] ? '↓' : '→');
+            const pct = data[0] > 0 ? Math.round(((data[data.length - 1] - data[0]) / data[0]) * 100) : 0;
+            return '<span class="sparkline"><svg width="' + width + '" height="' + height + '"><polyline points="' + points.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span> <span class="' + trend + '" style="font-size:12px;">' + arrow + ' ' + Math.abs(pct) + '%</span>';
+        }
+
+        async function loadActionCard() {
+            const card = document.getElementById('action-card');
+            const icon = document.getElementById('action-icon');
+            const text = document.getElementById('action-text');
+            const tips = [];
+
+            try {
+                const meRes = await api('/api/auth/me');
+                if (meRes && meRes.ok) {
+                    const me = await meRes.json();
+                    if (!me.name) tips.push({ i: '✏️', t: 'Додайте <strong>ім\'я</strong> в профілі — це підвищує довіру клієнтів.' });
+                }
+
+                const socialRes = await api('/api/profile/social-links');
+                if (socialRes && socialRes.ok) {
+                    const social = await socialRes.json();
+                    const links = social.links || [];
+                    if (links.length === 0) tips.push({ i: '🔗', t: 'Додайте <strong>соцмережі</strong> — клієнти зможуть знайти вас після букінгу.' });
+                }
+
+                const blogRes = await api('/api/blog/posts');
+                if (blogRes && blogRes.ok) {
+                    const posts = await blogRes.json();
+                    if (posts.length === 0) tips.push({ i: '📝', t: 'Напишіть <strong>перший пост</strong> у блозі — це допоможе залучити клієнтів.' });
+                    const drafts = posts.filter(p => p.status === 'draft');
+                    if (drafts.length > 0) tips.push({ i: '📄', t: 'У вас є <strong>чернетки</strong> — опублікуйте їх.' });
+                }
+
+                if (tips.length > 0) {
+                    const tip = tips[Math.floor(Math.random() * tips.length)];
+                    icon.textContent = tip.i;
+                    text.innerHTML = tip.t;
+                    card.style.display = 'flex';
+                }
+            } catch (e) {}
+        }
+
         // ── Init ──
         async function init() {
             const res = await api('/api/auth/me');
@@ -572,6 +685,7 @@
                 return;
             }
             loadBlog();
+            loadActionCard();
         }
 
         init();
