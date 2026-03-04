@@ -11,16 +11,14 @@ templates_dir = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
 
-@router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+# @router.get("/login", response_class=HTMLResponse)
+# async def login_page(request: Request):
+#     return templates.TemplateResponse("auth/login.html", {"request": request})
 
 
-@router.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request):
-    return templates.TemplateResponse("auth/register.html", {"request": request})
+# @router.get("/register", response_class=HTMLResponse)
+# async def register_page(request: Request):
+#     return templates.TemplateResponse("auth/register.html", {"request": request})
 
 
-@router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_page(request: Request):
-    return templates.TemplateResponse("dashboard/specialist.html", {"request": request})
+# GET /dashboard removed — use /admin-dashboard or /specialist-dashboard
