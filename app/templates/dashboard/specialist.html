@@ -505,7 +505,7 @@
                     '<h2 style="margin:20px 0 12px;">Топ постів</h2>' +
                     '<div style="background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
                     '<ul style="list-style:none;margin:0;padding:0;">' +
-                    data.popular_posts.slice(0, 5).map(p => '<li style="padding:8px 0;border-bottom:1px solid #eee;"><a href="/blog/' + (typeof USER !== \'undefined\' && USER && USER.practitioner_id != null ? USER.practitioner_id : \'\') + '/' + (p.slug || '') + '" target="_blank" style="color:#667eea;">' + escapeHtml(p.title || '') + '</a> — ' + (p.views || 0) + ' переглядів</li>').join('') +
+                    data.popular_posts.slice(0, 5).map(p => '<li style="padding:8px 0;border-bottom:1px solid #eee;"><a href="/blog/' + (typeof USER !== 'undefined' && USER && USER.practitioner_id != null ? USER.practitioner_id : '') + '/' + (p.slug || '') + '" target="_blank" style="color:#667eea;">' + escapeHtml(p.title || '') + '</a> - ' + (p.views || 0) + ' переглядів</li>').join('') +
                     '</ul></div>';
             }
         }
