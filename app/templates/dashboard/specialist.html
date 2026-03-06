@@ -10,31 +10,11 @@
 
         /* Layout */
         .app { display: flex; min-height: 100vh; }
-        .sidebar { width: 240px; background: #2c3e50; color: white; padding: 20px 0; position: fixed; height: 100vh; overflow-y: auto; }
-        .content { margin-left: 240px; padding: 24px; flex: 1; width: calc(100% - 240px); }
-
-        /* Sidebar */
-        .sidebar .logo { padding: 0 20px 20px; border-bottom: 1px solid #34495e; margin-bottom: 16px; }
-        .sidebar .logo h2 { font-size: 18px; }
-        .sidebar .logo small { color: #95a5a6; font-size: 12px; }
-        .sidebar .user-info { padding: 0 20px 16px; border-bottom: 1px solid #34495e; margin-bottom: 16px; }
-        .sidebar .user-info .name { font-weight: 600; }
-        .sidebar .user-info .role { color: #95a5a6; font-size: 12px; }
-
-        .nav-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 12px 20px; cursor: pointer; transition: background 0.2s;
-            font-size: 14px; border: none; background: none; color: white; width: 100%; text-align: left;
-        }
-        .nav-item:hover { background: #34495e; }
-        .nav-item.active { background: #667eea; }
-        .nav-item .icon { font-size: 18px; }
-
-        .sidebar .logout { position: absolute; bottom: 0; width: 100%; border-top: 1px solid #34495e; }
+        .content { margin-left: 260px; padding: 24px; flex: 1; width: calc(100% - 260px); }
 
         /* Content sections */
-        .section { display: none; }
-        .section.active { display: block; }
+        .section, .dashboard-section { display: none; }
+        .section.active, .dashboard-section.active { display: block; }
         .section h1 { font-size: 24px; margin-bottom: 20px; }
 
         /* Cards */
@@ -90,10 +70,7 @@
 
         /* Mobile */
         @media (max-width: 768px) {
-            .sidebar { width: 60px; }
-            .sidebar .logo h2, .sidebar .logo small, .sidebar .user-info, .nav-item span { display: none; }
-            .nav-item { justify-content: center; padding: 14px; }
-            .content { margin-left: 60px; width: calc(100% - 60px); padding: 16px; }
+            .content { margin-left: 0; width: 100%; padding: 16px; }
             .stats-grid { grid-template-columns: 1fr 1fr; }
         }
 
@@ -148,50 +125,90 @@
     </style>
 </head>
 <body>
-    <div class="app">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="logo">
-                <h2>Healer Nexus</h2>
-                <small>Панель управління</small>
-            </div>
-            <div class="user-info">
-                <div class="name" id="user-name">...</div>
-                <div class="role" id="user-role">...</div>
-            </div>
-            <button class="nav-item active" onclick="showSection('blog')">
-                <span class="icon">📝</span> <span>Мій блог</span>
-            </button>
-            <button class="nav-item" onclick="showSection('analytics')">
-                <span class="icon">📊</span> <span>Аналітика</span>
-            </button>
-            <button class="nav-item" onclick="showSection('bookings')">
-                <span class="icon">📅</span> <span>Букінги</span>
-            </button>
-            <button class="nav-item" onclick="showSection('profile')">
-                <span class="icon">👤</span> <span>Профіль</span>
-            </button>
-            <button class="nav-item" onclick="showSection('social')">
-                <span class="icon">🔗</span> <span>Соцмережі</span>
-            </button>
-            <button class="nav-item" onclick="showSection('ai')">
-                <span class="icon">🤖</span> <span>AI Генератор</span>
-            </button>
-            <div class="logout">
-                <button class="nav-item" onclick="logout()">
-                    <span class="icon">🚪</span> <span>Вийти</span>
-                </button>
-            </div>
-        </div>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/sidebar.js"></script>
 
+    <div id="sidebar-container"></div>
+
+    <div class="app">
         <!-- Content -->
         <div class="content">
             <div class="sticky-action" id="action-card" style="display:none;">
                 <div class="icon" id="action-icon">💡</div>
                 <div class="text" id="action-text"></div>
             </div>
+
+            <!-- OVERVIEW SECTION -->
+            <div class="section dashboard-section" id="section-overview" style="display:block;">
+                <!-- Welcome Card -->
+                <div id="welcome-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%); border-radius: 16px; padding: 32px; margin-bottom: 24px; display: none;">
+                    <h2 style="margin: 0 0 8px 0; color: #2c3e50; font-size: 24px;">
+                        👋 Вітаємо, <span id="welcome-name"></span>!
+                    </h2>
+                    <p style="margin: 0 0 20px 0; color: #5a6c7d; font-size: 16px;">
+                        Заповніть профіль, щоб AI почав рекомендувати вас клієнтам
+                    </p>
+                    <!-- Progress Bar -->
+                    <div style="background: #ddd; border-radius: 10px; height: 20px; margin-bottom: 12px; overflow: hidden;">
+                        <div id="profile-progress-bar" style="background: linear-gradient(90deg, #4a7c59, #66bb6a); height: 100%; border-radius: 10px; transition: width 0.5s ease; width: 0%;"></div>
+                    </div>
+                    <p id="profile-progress-text" style="margin: 0 0 20px 0; color: #4a7c59; font-weight: 600; font-size: 14px;">0% заповнено</p>
+                    <!-- Missing Fields Hints -->
+                    <div id="profile-hints" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                </div>
+
+                <!-- Quick Actions (D-006) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div onclick="showSection('blog'); openCreatePost();" style="background: white; border-radius: 12px; padding: 24px; cursor: pointer; border: 2px solid #e8f5e9; transition: all 0.2s; text-align: center;"
+                         onmouseover="this.style.borderColor='#4a7c59'; this.style.transform='translateY(-2px)'"
+                         onmouseout="this.style.borderColor='#e8f5e9'; this.style.transform='none'">
+                        <div style="font-size: 32px; margin-bottom: 8px;">📝</div>
+                        <div style="font-weight: 600; color: #2c3e50;">Створити пост</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Напишіть статтю для блогу</div>
+                    </div>
+                    <div onclick="showSection('bookings')" style="background: white; border-radius: 12px; padding: 24px; cursor: pointer; border: 2px solid #e3f2fd; transition: all 0.2s; text-align: center;"
+                         onmouseover="this.style.borderColor='#1976d2'; this.style.transform='translateY(-2px)'"
+                         onmouseout="this.style.borderColor='#e3f2fd'; this.style.transform='none'">
+                        <div style="font-size: 32px; margin-bottom: 8px;">📅</div>
+                        <div style="font-weight: 600; color: #2c3e50;">Бронювання</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Перегляньте нові запити</div>
+                    </div>
+                    <div onclick="showSection('profile')" style="background: white; border-radius: 12px; padding: 24px; cursor: pointer; border: 2px solid #fce4ec; transition: all 0.2s; text-align: center;"
+                         onmouseover="this.style.borderColor='#c62828'; this.style.transform='translateY(-2px)'"
+                         onmouseout="this.style.borderColor='#fce4ec'; this.style.transform='none'">
+                        <div style="font-size: 32px; margin-bottom: 8px;">👤</div>
+                        <div style="font-weight: 600; color: #2c3e50;">Мій профіль</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Оновіть інформацію про себе</div>
+                    </div>
+                    <div onclick="showSection('ai-generator')" style="background: white; border-radius: 12px; padding: 24px; cursor: pointer; border: 2px solid #f3e5f5; transition: all 0.2s; text-align: center;"
+                         onmouseover="this.style.borderColor='#7b1fa2'; this.style.transform='translateY(-2px)'"
+                         onmouseout="this.style.borderColor='#f3e5f5'; this.style.transform='none'">
+                        <div style="font-size: 32px; margin-bottom: 8px;">🤖</div>
+                        <div style="font-weight: 600; color: #2c3e50;">AI Генератор</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Створіть контент за допомогою AI</div>
+                    </div>
+                </div>
+
+                <!-- Stats Summary -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                    <div style="background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                        <div id="stat-posts" style="font-size: 28px; font-weight: 700; color: #4a7c59;">—</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Публікацій</div>
+                    </div>
+                    <div style="background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                        <div id="stat-bookings" style="font-size: 28px; font-weight: 700; color: #1976d2;">—</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Бронювань</div>
+                    </div>
+                    <div style="background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                        <div id="stat-views" style="font-size: 28px; font-weight: 700; color: #7b1fa2;">—</div>
+                        <div style="font-size: 13px; color: #7f8c8d; margin-top: 4px;">Переглядів</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- BLOG SECTION -->
-            <div class="section active" id="section-blog">
+            <div class="section dashboard-section" id="section-blog" style="display:none;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                     <h1>📝 Мій блог</h1>
                     <button class="btn btn-primary" onclick="openCreatePost()">✍️ Написати пост</button>
@@ -200,32 +217,108 @@
             </div>
 
             <!-- ANALYTICS SECTION -->
-            <div class="section" id="section-analytics">
+            <div class="section dashboard-section" id="section-analytics" style="display:none;">
                 <h1>📊 Аналітика</h1>
                 <div class="stats-grid" id="analytics-stats"><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div><div class="skeleton-card"><div class="skeleton skeleton-number"></div><div class="skeleton skeleton-line w60"></div></div></div>
                 <div id="analytics-details"></div>
             </div>
 
             <!-- BOOKINGS SECTION -->
-            <div class="section" id="section-bookings">
+            <div class="section dashboard-section" id="section-bookings" style="display:none;">
                 <h1>📅 Мої букінги</h1>
                 <div id="bookings-list"><div class="skeleton-card"><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w60"></div><div class="skeleton skeleton-line w40"></div></div></div>
             </div>
 
             <!-- PROFILE SECTION -->
-            <div class="section" id="section-profile">
-                <h1>👤 Мій профіль</h1>
-                <div id="profile-form"><div class="loading">Завантаження...</div></div>
+            <div class="section dashboard-section" id="section-profile" style="display:none;">
+                <h2 style="margin-bottom: 24px; color: #2c3e50;">Мій профіль</h2>
+                <div style="max-width: 700px;">
+                    <!-- Основна інформація -->
+                    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                        <h3 style="margin: 0 0 16px 0; color: #4a7c59;">Основна інформація</h3>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Повне ім'я</label>
+                            <input type="text" id="profile-full-name" placeholder="Ваше ім'я"
+                                   style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Спеціалізація</label>
+                            <input type="text" id="profile-specialty" placeholder="Наприклад: Психосоматика, Арт-терапія"
+                                   style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Про мене (біо)</label>
+                            <textarea id="profile-bio" rows="4" placeholder="Розкажіть про себе, свій досвід та підхід..."
+                                      style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; resize: vertical; box-sizing: border-box;"></textarea>
+                        </div>
+                    </div>
+                    <!-- Послуги -->
+                    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                        <h3 style="margin: 0 0 16px 0; color: #4a7c59;">Послуги</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Тип послуги</label>
+                                <select id="profile-service-type"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                                    <option value="">Оберіть...</option>
+                                    <option value="healing">Цілительство</option>
+                                    <option value="psychology">Психологія</option>
+                                    <option value="coaching">Коучинг</option>
+                                    <option value="art_therapy">Арт-терапія</option>
+                                    <option value="meditation">Медитації</option>
+                                    <option value="3d_design">3D Дизайн</option>
+                                    <option value="design">Дизайн</option>
+                                    <option value="other">Інше</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Формат</label>
+                                <select id="profile-delivery"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                                    <option value="">Оберіть...</option>
+                                    <option value="online">Онлайн</option>
+                                    <option value="offline">Офлайн</option>
+                                    <option value="both">Обидва</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Ціна за годину (грн)</label>
+                                <input type="number" id="profile-hourly-rate" placeholder="500" min="0"
+                                       style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #5a6c7d; margin-bottom: 6px;">Досвід (років)</label>
+                                <input type="number" id="profile-experience" placeholder="3" min="0" max="50"
+                                       style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Збереження -->
+                    <div style="text-align: right;">
+                        <span id="profile-save-status" style="color: #4a7c59; margin-right: 16px; display: none;">✅ Збережено</span>
+                        <button onclick="saveProfile()" id="profile-save-btn"
+                                style="background: #4a7c59; color: white; border: none; padding: 12px 32px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.2s;"
+                                onmouseover="this.style.background='#3d6b4a'" onmouseout="this.style.background='#4a7c59'">
+                            Зберегти профіль
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- SOCIAL LINKS SECTION -->
-            <div class="section" id="section-social">
+            <div class="section dashboard-section" id="section-social" style="display:none;">
                 <h1>🔗 Мої соцмережі</h1>
                 <div id="social-form"><div class="loading">Завантаження...</div></div>
             </div>
 
+            <!-- REVIEWS SECTION (placeholder) -->
+            <div class="section dashboard-section" id="section-reviews" style="display:none;">
+                <h1>⭐ Відгуки</h1>
+                <p>Скоро буде доступно.</p>
+            </div>
+
             <!-- AI GENERATOR SECTION -->
-            <div class="section" id="section-ai">
+            <div class="section dashboard-section" id="section-ai-generator" style="display:none;">
                 <h1>🤖 AI Генератор постів</h1>
                 <div class="form-group">
                     <label>Тема посту</label>
@@ -280,68 +373,27 @@
     </div>
 
     <script>
-        // ── Config ──
-        const API = '';
-        let TOKEN = localStorage.getItem('access_token');
-        let USER = JSON.parse(localStorage.getItem('user') || 'null');
-
-        // ── Auth ──
-        if (!TOKEN) window.location.href = '/login';
-
-        async function api(path, options = {}) {
-            const res = await fetch(API + path, {
-                ...options,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${TOKEN}`,
-                    ...(options.headers || {})
-                }
-            });
-            if (res.status === 401) {
-                const refreshed = await refreshToken();
-                if (refreshed) return api(path, options);
-                logout();
-                return null;
+        (async function () {
+            var user = await HealerAuth.checkAuth();
+            if (!user || user.role !== 'practitioner') {
+                HealerAuth.logout();
+                return;
             }
-            return res;
-        }
+            var USER = user;
 
-        async function refreshToken() {
-            const rt = localStorage.getItem('refresh_token');
-            if (!rt) return false;
-            try {
-                const res = await fetch('/api/auth/refresh', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refresh_token: rt })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    TOKEN = data.access_token;
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('refresh_token', data.refresh_token);
-                    return true;
-                }
-            } catch(e) {}
-            return false;
-        }
-
-        function logout() {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-        }
+            if (window.HealerSidebar) {
+                HealerSidebar.renderSidebar('sidebar-container');
+                HealerSidebar.setActiveSection('overview');
+            }
 
         // ── Navigation ──
         function showSection(name) {
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(`section-${name}`).classList.add('active');
-            const btn = (typeof event !== 'undefined' && event && event.target) ? event.target.closest('.nav-item') : null;
-            if (btn) btn.classList.add('active');
-            else document.querySelector('.nav-item')?.classList.add('active');
+            document.querySelectorAll('.dashboard-section').forEach(function(s) { s.style.display = 'none'; });
+            var target = document.getElementById('section-' + name);
+            if (target) target.style.display = 'block';
+            if (window.HealerSidebar) HealerSidebar.setActiveSection(name);
 
+            if (name === 'overview') loadOverview();
             if (name === 'blog') loadBlog();
             if (name === 'analytics') loadAnalytics();
             if (name === 'bookings') loadBookings();
@@ -349,11 +401,64 @@
             if (name === 'social') loadSocial();
         }
 
+        // ── Overview (Welcome card + stats) ──
+        async function loadOverview() {
+            var welcomeName = document.getElementById('welcome-name');
+            if (welcomeName) welcomeName.textContent = (typeof USER !== 'undefined' && USER && (USER.name || USER.email)) ? (USER.name || USER.email) : '';
+
+            var me = null;
+            var posts = [];
+            var bookingsData = null;
+            var analyticsData = null;
+            try {
+                me = await HealerAPI.get('/api/auth/me');
+                posts = await HealerAPI.get('/api/blog/posts') || [];
+                bookingsData = await HealerAPI.get('/api/bookings/specialist');
+                analyticsData = await HealerAPI.get('/api/blog/analytics/dashboard');
+            } catch (e) {}
+
+            var bookings = (bookingsData && bookingsData.items) ? bookingsData.items : [];
+            var stats = (analyticsData && analyticsData.stats) ? analyticsData.stats : analyticsData || {};
+            var totalViews = stats.total_views || 0;
+
+            var statPostsEl = document.getElementById('stat-posts');
+            var statBookingsEl = document.getElementById('stat-bookings');
+            var statViewsEl = document.getElementById('stat-views');
+            if (statPostsEl) statPostsEl.textContent = posts.length;
+            if (statBookingsEl) statBookingsEl.textContent = bookings.length;
+            if (statViewsEl) statViewsEl.textContent = totalViews;
+
+            var socialLinks = [];
+            try {
+                var social = await HealerAPI.get('/api/profile/social-links');
+                if (social && social.links) socialLinks = social.links;
+            } catch (e) {}
+
+            var hasName = !!(me && me.name && me.name.trim());
+            var hasSocial = socialLinks.length > 0;
+            var total = 2;
+            var filled = (hasName ? 1 : 0) + (hasSocial ? 1 : 0);
+            var pct = total ? Math.round((filled / total) * 100) : 100;
+
+            var bar = document.getElementById('profile-progress-bar');
+            var text = document.getElementById('profile-progress-text');
+            var hints = document.getElementById('profile-hints');
+            var card = document.getElementById('welcome-card');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = pct + '% заповнено';
+            if (hints) {
+                var parts = [];
+                if (!hasName) parts.push('<span style="background:#fff3cd;color:#856404;padding:6px 12px;border-radius:8px;font-size:13px;">👤 Додайте ім\'я в профілі</span>');
+                if (!hasSocial) parts.push('<span style="background:#cce5ff;color:#004085;padding:6px 12px;border-radius:8px;font-size:13px;">🔗 Додайте соцмережі</span>');
+                hints.innerHTML = parts.join('');
+            }
+            if (card) card.style.display = pct < 100 ? 'block' : 'none';
+        }
+
         // ── Blog ──
         async function loadBlog() {
-            const res = await api('/api/blog/posts');
-            if (!res) return;
-            const posts = await res.json();
+            var posts = await HealerAPI.get('/api/blog/posts');
+            if (!posts) return;
             const el = document.getElementById('blog-posts');
             if (!posts.length) {
                 el.innerHTML = '<div class="alert alert-success">Ще немає постів. Натисніть "Написати пост" або використайте AI Генератор!</div>';
@@ -393,17 +498,18 @@
             const tags = document.getElementById('post-tags').value;
             if (!title || !content) { alert("Заповніть заголовок і контент"); return; }
 
-            const body = { title, content, excerpt: excerpt || title, tags: tags ? tags.split(',').map(t=>t.trim()) : [] };
-            let res;
-            if (id) {
-                res = await api('/api/blog/posts/' + id, { method: 'PUT', body: JSON.stringify(body) });
-            } else {
-                res = await api('/api/blog/posts', { method: 'POST', body: JSON.stringify(body) });
-            }
-            if (res && res.ok) {
-                const post = await res.json();
+            var body = { title, content, excerpt: excerpt || title, tags: tags ? tags.split(',').map(t=>t.trim()) : [] };
+            var post = null;
+            try {
+                if (id) {
+                    post = await HealerAPI.put('/api/blog/posts/' + id, body);
+                } else {
+                    post = await HealerAPI.post('/api/blog/posts', body);
+                }
+            } catch (e) {}
+            if (post) {
                 if (action === 'publish' && post.id) {
-                    await api('/api/blog/posts/' + post.id + '/publish', { method: 'POST' });
+                    await HealerAPI.post('/api/blog/posts/' + post.id + '/publish', {});
                 }
                 closePostModal();
                 loadBlog();
@@ -413,9 +519,8 @@
         }
 
         async function editPost(id) {
-            const res = await api('/api/blog/posts');
-            if (!res) return;
-            const posts = await res.json();
+            var posts = await HealerAPI.get('/api/blog/posts');
+            if (!posts) return;
             const post = posts.find(p => p.id === id);
             if (!post) return;
             document.getElementById('post-modal-title').textContent = 'Редагувати пост';
@@ -429,34 +534,36 @@
 
         async function publishPost(id) {
             if (!confirm('Опублікувати пост?')) return;
-            await api('/api/blog/posts/' + id + '/publish', { method: 'POST' });
+            await HealerAPI.post('/api/blog/posts/' + id + '/publish', {});
             loadBlog();
         }
 
         async function deletePost(id) {
             if (!confirm('Видалити пост?')) return;
-            await api('/api/blog/posts/' + id, { method: 'DELETE' });
+            await HealerAPI.del('/api/blog/posts/' + id);
             loadBlog();
         }
 
         // ── Analytics ──
         async function loadAnalytics() {
-            const res = await api('/api/blog/analytics/dashboard');
-            if (!res) return;
-            if (!res.ok) {
+            var data;
+            try {
+                data = await HealerAPI.get('/api/blog/analytics/dashboard');
+            } catch (e) {
+                data = null;
+            }
+            if (!data) {
                 document.getElementById('analytics-stats').innerHTML = '<div class="stat-card"><div class="number">0</div><div class="label">Поки немає даних</div></div>';
                 return;
             }
-            const data = await res.json();
 
-            const dailyData = [];
-            let dailyRaw = [];
+            var dailyData = [];
+            var dailyRaw = [];
             try {
-                const dRes = await api('/api/blog/analytics/dashboard/daily');
-                if (dRes && dRes.ok) {
-                    const dd = await dRes.json();
+                var dd = await HealerAPI.get('/api/blog/analytics/dashboard/daily');
+                if (dd) {
                     dailyRaw = dd;
-                    dd.forEach(d => dailyData.push(d.views_total || d.views || 0));
+                    dd.forEach(function (d) { dailyData.push(d.views_total || d.views || 0); });
                 }
             } catch (e) {}
 
@@ -473,9 +580,8 @@
                 '<div class="stat-card"><div class="number">' + (stats.draft_posts || 0) + '</div><div class="label">Чернеток</div></div>' +
                 '</div>';
 
-            const recRes = await api('/api/recommendations/my-stats');
-            if (recRes && recRes.ok) {
-                const rec = await recRes.json();
+            var rec = await HealerAPI.get('/api/recommendations/my-stats');
+            if (rec) {
                 document.getElementById('analytics-details').innerHTML =
                     '<h2 style="margin: 20px 0 16px;">Воронка рекомендацій</h2><div class="stats-grid">' +
                     '<div class="stat-card"><div class="number">' + (rec.total_recommendations || 0) + '</div><div class="label">Рекомендацій AI</div></div>' +
@@ -512,13 +618,8 @@
 
         // ── Bookings ──
         async function loadBookings() {
-            const res = await api('/api/bookings/specialist');
-            if (!res) return;
-            if (!res.ok) {
-                document.getElementById('bookings-list').innerHTML = '<div class="alert alert-success">Поки немає букінгів</div>';
-                return;
-            }
-            const bookings = await res.json();
+            var data = await HealerAPI.get('/api/bookings/specialist');
+            var bookings = (data && data.items) ? data.items : [];
             if (!bookings.length) {
                 document.getElementById('bookings-list').innerHTML = '<div class="alert alert-success">Поки немає букінгів. Вони зʼявляться коли клієнти запишуться через AI-чат.</div>';
                 return;
@@ -531,34 +632,59 @@
                 '</td></tr>').join('') + '</tbody></table>';
         }
 
-        async function confirmBooking(id) { await api('/api/bookings/' + id + '/confirm', { method: 'POST' }); loadBookings(); }
-        async function completeBooking(id) { await api('/api/bookings/' + id + '/complete', { method: 'POST' }); loadBookings(); }
-        async function cancelBooking(id) { if (confirm('Скасувати букінг?')) { await api('/api/bookings/' + id + '/cancel', { method: 'POST' }); loadBookings(); } }
+        async function confirmBooking(id) { await HealerAPI.post('/api/bookings/' + id + '/confirm', {}); loadBookings(); }
+        async function completeBooking(id) { await HealerAPI.post('/api/bookings/' + id + '/complete', {}); loadBookings(); }
+        async function cancelBooking(id) { if (confirm('Скасувати букінг?')) { await HealerAPI.post('/api/bookings/' + id + '/cancel', {}); loadBookings(); } }
 
         // ── Profile ──
         async function loadProfile() {
-            const res = await api('/api/auth/me');
-            if (!res || !res.ok) return;
-            const user = await res.json();
-            const name = escapeHtml(user.name || '');
-            const email = escapeHtml(user.email || '');
-            const sid = user.specialist_id != null ? user.specialist_id : '';
-            const pid = user.practitioner_id != null ? user.practitioner_id : '';
-            document.getElementById('profile-form').innerHTML =
-                '<div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
-                '<div class="form-group"><label>Ім\'я</label><input type="text" id="prof-name" value="' + name + '"></div>' +
-                '<div class="form-group"><label>Email</label><input type="email" id="prof-email" value="' + email + '" disabled></div>' +
-                '<div class="form-group"><label>Роль</label><input type="text" value="' + escapeHtml(user.role || '') + '" disabled></div>' +
-                '<div class="form-group"><label>Публічний профіль</label><a href="/specialists/' + sid + '" target="_blank" style="color:#667eea;">/specialists/' + sid + '</a></div>' +
-                '<div class="form-group"><label>Мій блог</label><a href="/blog/' + pid + '" target="_blank" style="color:#667eea;">/blog/' + pid + '</a></div>' +
-                '<div id="profile-alert"></div></div>';
+            try {
+                var data = await HealerAPI.get('/api/profile/me');
+                if (data) {
+                    document.getElementById('profile-full-name').value = data.full_name || data.name || '';
+                    document.getElementById('profile-specialty').value = data.specialty || '';
+                    document.getElementById('profile-bio').value = data.bio || '';
+                    document.getElementById('profile-service-type').value = data.service_type || '';
+                    document.getElementById('profile-delivery').value = data.delivery_method || '';
+                    document.getElementById('profile-hourly-rate').value = data.hourly_rate || '';
+                    document.getElementById('profile-experience').value = data.experience_years || '';
+                }
+            } catch (e) {
+                console.log('Error loading profile:', e);
+            }
+        }
+
+        async function saveProfile() {
+            var btn = document.getElementById('profile-save-btn');
+            var status = document.getElementById('profile-save-status');
+            btn.disabled = true;
+            btn.textContent = 'Збереження...';
+            status.style.display = 'none';
+            try {
+                var body = {
+                    full_name: document.getElementById('profile-full-name').value.trim(),
+                    specialty: document.getElementById('profile-specialty').value.trim(),
+                    bio: document.getElementById('profile-bio').value.trim(),
+                    service_type: document.getElementById('profile-service-type').value,
+                    delivery_method: document.getElementById('profile-delivery').value,
+                    hourly_rate: parseFloat(document.getElementById('profile-hourly-rate').value) || null,
+                    experience_years: parseInt(document.getElementById('profile-experience').value, 10) || null
+                };
+                await HealerAPI.put('/api/profile/me', body);
+                status.style.display = 'inline';
+                setTimeout(function () { status.style.display = 'none'; }, 3000);
+            } catch (e) {
+                alert('Помилка збереження: ' + (e.message || e));
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Зберегти профіль';
+            }
         }
 
         // ── Social Links ──
         async function loadSocial() {
-            const res = await api('/api/profile/social-links');
-            if (!res) return;
-            const data = res.ok ? await res.json() : { links: [], supported_platforms: ['telegram','instagram','youtube','facebook','tiktok','linkedin','behance','dribbble','twitter'] };
+            var data = await HealerAPI.get('/api/profile/social-links');
+            if (!data) data = { links: [], supported_platforms: ['telegram','instagram','youtube','facebook','tiktok','linkedin','behance','dribbble','twitter'] };
             const links = data.links || [];
             const platforms = data.supported_platforms || ['telegram','instagram','youtube','facebook','tiktok','linkedin'];
 
@@ -566,10 +692,12 @@
             links.forEach(l => { existing[l.platform] = l.username; });
 
             const icons = {telegram:'✈️',instagram:'📷',youtube:'🎬',facebook:'📘',tiktok:'🎵',linkedin:'💼',behance:'🎨',dribbble:'🏀',twitter:'🐦'};
+            const channelId = (data.telegram_channel_id || '').trim();
 
             document.getElementById('social-form').innerHTML =
                 '<div style="background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
                 platforms.map(p => '<div class="form-group" style="display:flex;align-items:center;gap:12px;"><span style="font-size:20px;width:30px;">' + (icons[p]||'🔗') + '</span><label style="width:100px;margin:0;">' + p + '</label><input type="text" id="social-' + p + '" value="' + escapeHtml(existing[p]||'') + '" placeholder="username (без @)" style="flex:1;"></div>').join('') +
+                '<div class="form-group" style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;"><label style="display:block;margin-bottom:8px;font-weight:600;">📢 Telegram-канал для анонсів блогу</label><input type="text" id="social-telegram-channel" value="' + escapeHtml(channelId) + '" placeholder="@channel або -1001234567890" style="width:100%;max-width:320px;"><small style="display:block;margin-top:4px;color:#888;">ID каналу або @username. Анонси нових постів будуть публікуватись сюди.</small></div>' +
                 '<button class="btn btn-primary" onclick="saveSocial()" style="margin-top:16px;">💾 Зберегти</button><div id="social-alert" style="margin-top:12px;"></div></div>';
         }
 
@@ -580,9 +708,11 @@
                 const el = document.getElementById('social-' + p);
                 if (el) { const val = el.value.trim(); if (val) body[p] = val.replace('@',''); }
             });
-            const res = await api('/api/profile/social-links', { method: 'PUT', body: JSON.stringify(body) });
-            const alertEl = document.getElementById('social-alert');
-            if (res && res.ok) {
+            const channelEl = document.getElementById('social-telegram-channel');
+            if (channelEl) body.telegram_channel_id = channelEl.value.trim();
+            var result = await HealerAPI.put('/api/profile/social-links', body);
+            var alertEl = document.getElementById('social-alert');
+            if (result !== null && result !== undefined) {
                 alertEl.innerHTML = '<div class="alert alert-success">Збережено!</div>';
             } else {
                 alertEl.innerHTML = '<div class="alert alert-error">Помилка збереження</div>';
@@ -600,16 +730,17 @@
             document.getElementById('ai-generate-btn').textContent = '⏳ Генерація...';
             document.getElementById('ai-result').innerHTML = '<div class="loading">AI пише пост... (10-30 секунд)</div>';
 
-            const res = await api('/api/blog/posts/ai/generate-draft', {
-                method: 'POST',
-                body: JSON.stringify({ topic, keywords: keywords.split(',').map(k=>k.trim()), tone, length: 'medium' })
-            });
+            var post;
+            try {
+                post = await HealerAPI.post('/api/blog/posts/ai/generate-draft', { topic, keywords: keywords.split(',').map(function(k){ return k.trim(); }), tone, length: 'medium' });
+            } catch (e) {
+                post = null;
+            }
 
             document.getElementById('ai-generate-btn').disabled = false;
             document.getElementById('ai-generate-btn').textContent = '🤖 Згенерувати пост';
 
-            if (res && res.ok) {
-                const post = await res.json();
+            if (post) {
                 document.getElementById('ai-result').innerHTML =
                     '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
                     '<h3>' + escapeHtml(post.title || 'Пост згенеровано') + '</h3><p style="color:#888;margin:8px 0;">Пост збережено як чернетку</p>' +
@@ -642,22 +773,17 @@
             const tips = [];
 
             try {
-                const meRes = await api('/api/auth/me');
-                if (meRes && meRes.ok) {
-                    const me = await meRes.json();
-                    if (!me.name) tips.push({ i: '✏️', t: 'Додайте <strong>ім\'я</strong> в профілі — це підвищує довіру клієнтів.' });
-                }
+                var me = await HealerAPI.get('/api/auth/me');
+                if (me && !me.name) tips.push({ i: '✏️', t: 'Додайте <strong>ім\'я</strong> в профілі — це підвищує довіру клієнтів.' });
 
-                const socialRes = await api('/api/profile/social-links');
-                if (socialRes && socialRes.ok) {
-                    const social = await socialRes.json();
-                    const links = social.links || [];
+                var social = await HealerAPI.get('/api/profile/social-links');
+                if (social) {
+                    var links = social.links || [];
                     if (links.length === 0) tips.push({ i: '🔗', t: 'Додайте <strong>соцмережі</strong> — клієнти зможуть знайти вас після букінгу.' });
                 }
 
-                const blogRes = await api('/api/blog/posts');
-                if (blogRes && blogRes.ok) {
-                    const posts = await blogRes.json();
+                var posts = await HealerAPI.get('/api/blog/posts');
+                if (posts) {
                     if (posts.length === 0) tips.push({ i: '📝', t: 'Напишіть <strong>перший пост</strong> у блозі — це допоможе залучити клієнтів.' });
                     const drafts = posts.filter(p => p.status === 'draft');
                     if (drafts.length > 0) tips.push({ i: '📄', t: 'У вас є <strong>чернетки</strong> — опублікуйте їх.' });
@@ -673,22 +799,28 @@
         }
 
         // ── Init ──
-        async function init() {
-            const res = await api('/api/auth/me');
-            if (res && res.ok) {
-                const user = await res.json();
-                document.getElementById('user-name').textContent = user.name || user.email;
-                document.getElementById('user-role').textContent = user.role || '';
-                USER = user;
-            } else {
-                logout();
-                return;
-            }
+        function init() {
+            loadOverview();
             loadBlog();
             loadActionCard();
         }
 
+        window.showSection = showSection;
+        window.openCreatePost = openCreatePost;
+        window.closePostModal = closePostModal;
+        window.savePost = savePost;
+        window.editPost = editPost;
+        window.publishPost = publishPost;
+        window.deletePost = deletePost;
+        window.generateAIPost = generateAIPost;
+        window.saveSocial = saveSocial;
+        window.saveProfile = saveProfile;
+        window.confirmBooking = confirmBooking;
+        window.completeBooking = completeBooking;
+        window.cancelBooking = cancelBooking;
+
         init();
+        })();
     </script>
 </body>
 </html>

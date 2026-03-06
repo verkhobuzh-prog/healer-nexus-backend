@@ -6,10 +6,13 @@ Fixed: removed debug endpoints, GEMINI_ENABLED guard on scheduler, clean startup
 import logging
 import os
 
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
 
 from app.database.connection import init_db
 from app.database.seed import seed_database
@@ -121,6 +124,10 @@ app.include_router(specialist_pages_router)
 app.include_router(dashboard_pages_router)
 app.include_router(seo_router)
 
+# Templates for dashboard login
+_templates_dir = Path(__file__).resolve().parent / "templates"
+_templates = Jinja2Templates(directory=str(_templates_dir))
+
 
 # --- Static pages ---
 @app.get("/", include_in_schema=False)
@@ -139,8 +146,13 @@ async def admin():
 
 
 @app.get("/login", include_in_schema=False)
-async def login_page():
-    return FileResponse("app/static/login.html")
+async def login_redirect():
+    return RedirectResponse(url="/dashboard/login")
+
+
+@app.get("/dashboard/login", include_in_schema=False)
+async def login_page(request: Request):
+    return _templates.TemplateResponse("dashboard/login.html", {"request": request})
 
 
 @app.get("/admin-dashboard", include_in_schema=False)

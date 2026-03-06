@@ -54,6 +54,28 @@ async def list_users(
         ],
         "total": total,
     }
+async def _apply_role_update(user_id: int, role: str, db: AsyncSession) -> None:
+    if role not in ("user", "practitioner", "admin"):
+        raise HTTPException(400, "Invalid role. Use: user, practitioner, admin")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.role = role
+    await db.commit()
+
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    body: RoleUpdate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update user (e.g. role). Body: { \"role\": \"user\" | \"practitioner\" | \"admin\" }. Admin only."""
+    await _apply_role_update(user_id, body.role, db)
+    return {"message": f"User {user_id} role updated to {body.role}", "user_id": user_id, "role": body.role}
+
+
 @router.put("/users/{user_id}/role")
 async def update_user_role(
     user_id: int,
@@ -62,13 +84,7 @@ async def update_user_role(
     db: AsyncSession = Depends(get_db),
 ):
     """Change user role. Admin only."""
-    if body.role not in ("user", "practitioner", "admin"):
-        raise HTTPException(400, "Invalid role. Use: user, practitioner, admin")
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
-    user.role = body.role
-    await db.commit()
+    await _apply_role_update(user_id, body.role, db)
     return {"message": f"User {user_id} role updated to {body.role}", "user_id": user_id, "role": body.role}
 @router.delete("/users/{user_id}")
 async def delete_user(

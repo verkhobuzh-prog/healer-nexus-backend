@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Увійти — Healer Nexus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', 'Nunito', -apple-system, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(160deg, #f0f4f0 0%, #e8f0f0 50%, #f5f8fa 100%);
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            padding: 48px 40px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .logo h1 {
+            font-family: 'Nunito', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4a7c59;
+            letter-spacing: -0.02em;
+        }
+        .logo p {
+            font-size: 0.95rem;
+            color: #718096;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+        .form-group {
+            margin-bottom: 24px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 1rem;
+            font-family: inherit;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fafbfc;
+            color: #2d3748;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .form-group input::placeholder {
+            color: #a0aec0;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #6b9bd1;
+            background: #fff;
+        }
+        .forgot {
+            text-align: right;
+            margin-top: 6px;
+        }
+        .forgot span {
+            font-size: 0.8125rem;
+            color: #718096;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.05s;
+        }
+        .btn-primary {
+            background: #4a7c59;
+            color: #fff;
+            margin-top: 8px;
+        }
+        .btn-primary:hover {
+            background: #3d6b4a;
+        }
+        .btn-primary:active {
+            transform: scale(0.99);
+        }
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .error {
+            font-size: 0.875rem;
+            color: #c53030;
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .error.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">
+            <h1>Healer Nexus</h1>
+            <p>Увійдіть у свій акаунт</p>
+        </div>
+
+        <div id="error" class="error" role="alert"></div>
+
+        <form id="login-form" novalidate>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                <div class="forgot"><span>Забули пароль?</span></div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="submit-btn">Увійти</button>
+        </form>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script>
+        const form = document.getElementById('login-form');
+        const errorEl = document.getElementById('error');
+        const submitBtn = document.getElementById('submit-btn');
+
+        function showError(msg) {
+            errorEl.textContent = msg || 'Невірний email або пароль';
+            errorEl.classList.add('visible');
+        }
+
+        function hideError() {
+            errorEl.textContent = '';
+            errorEl.classList.remove('visible');
+        }
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            hideError();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showError('Введіть email та пароль');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Вхід...';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    showError(data.detail || 'Невірний email або пароль');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Увійти';
+                    return;
+                }
+
+                if (data.access_token) {
+                    localStorage.setItem('access_token', data.access_token);
+                }
+                if (data.refresh_token) {
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                }
+
+                var user = await HealerAuth.checkAuth();
+                if (user) {
+                    localStorage.setItem('user', JSON.stringify(user));
+                    if (HealerAuth.isAdmin()) window.location.href = '/admin-dashboard';
+                    else if (HealerAuth.isPractitioner()) window.location.href = '/specialist-dashboard';
+                    else window.location.href = '/admin-dashboard';
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Увійти';
+                }
+            } catch (err) {
+                showError('Помилка з\'єднання. Спробуйте ще раз.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Увійти';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -44,16 +44,65 @@
     </style>
 </head>
 <body>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/sidebar.js"></script>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h1 style="font-size:24px;color:#2c3e50;">🛡️ Admin Dashboard</h1>
-        <button onclick="localStorage.clear();window.location.href='/login'" style="padding:8px 16px;background:#e74c3c;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Вийти</button>
-    </div>
+    <div id="sidebar-container"></div>
 
-    <div style="margin-bottom:24px;">
-        <h2 style="margin-bottom:12px;">📋 Заявки спеціалістів</h2>
-        <div id="applications-list"><div style="color:#888;">Завантаження...</div></div>
-    </div>
+    <div class="main-content" style="margin-left: 260px; padding: 20px;">
+        <div class="dashboard-section" id="section-overview">
+            <!-- Admin Overview Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <!-- Pending Applications -->
+                <div onclick="showSection('applications')" style="background: white; border-radius: 12px; padding: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #e67e22; transition: transform 0.2s;"
+                     onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 4px;">Нові заявки</div>
+                            <div id="overview-pending" style="font-size: 28px; font-weight: 700; color: #e67e22;">—</div>
+                        </div>
+                        <div style="font-size: 32px;">📋</div>
+                    </div>
+                    <div style="font-size: 12px; color: #95a5a6; margin-top: 8px;">Очікують розгляду →</div>
+                </div>
+                <!-- Total Users -->
+                <div onclick="showSection('users')" style="background: white; border-radius: 12px; padding: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #3498db; transition: transform 0.2s;"
+                     onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 4px;">Користувачів</div>
+                            <div id="overview-users" style="font-size: 28px; font-weight: 700; color: #3498db;">—</div>
+                        </div>
+                        <div style="font-size: 32px;">👥</div>
+                    </div>
+                    <div style="font-size: 12px; color: #95a5a6; margin-top: 8px;">Всього на платформі →</div>
+                </div>
+                <!-- Active Specialists -->
+                <div onclick="showSection('map')" style="background: white; border-radius: 12px; padding: 20px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #4a7c59; transition: transform 0.2s;"
+                     onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 4px;">Спеціалістів</div>
+                            <div id="overview-specialists" style="font-size: 28px; font-weight: 700; color: #4a7c59;">—</div>
+                        </div>
+                        <div style="font-size: 32px;">🧑‍⚕️</div>
+                    </div>
+                    <div style="font-size: 12px; color: #95a5a6; margin-top: 8px;">Активних на карті →</div>
+                </div>
+                <!-- Bookings -->
+                <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid #9b59b6; transition: transform 0.2s;"
+                     onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 4px;">Бронювань</div>
+                            <div id="overview-bookings" style="font-size: 28px; font-weight: 700; color: #9b59b6;">—</div>
+                        </div>
+                        <div style="font-size: 32px;">📅</div>
+                    </div>
+                    <div style="font-size: 12px; color: #95a5a6; margin-top: 8px;">Всього записів</div>
+                </div>
+            </div>
 
     <div class="stats-grid">
         <div class="stat-card">
@@ -91,32 +140,122 @@
     </div>
 
     <div id="grid" class="grid"></div>
+        </div>
+
+        <div class="dashboard-section" id="section-applications" style="display:none">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #2c3e50;">Заявки спеціалістів</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="filterApplications('pending')" id="filter-pending" class="app-filter active-filter"
+                            style="padding: 8px 16px; border-radius: 20px; border: 1px solid #4a7c59; background: #4a7c59; color: white; cursor: pointer; font-size: 13px;">
+                        ⏳ Очікують
+                    </button>
+                    <button onclick="filterApplications('approved')" id="filter-approved" class="app-filter"
+                            style="padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; font-size: 13px;">
+                        ✅ Схвалені
+                    </button>
+                    <button onclick="filterApplications('rejected')" id="filter-rejected" class="app-filter"
+                            style="padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; font-size: 13px;">
+                        ❌ Відхилені
+                    </button>
+                    <button onclick="filterApplications('all')" id="filter-all" class="app-filter"
+                            style="padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; font-size: 13px;">
+                        Всі
+                    </button>
+                </div>
+            </div>
+            <div id="applications-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <p style="color: #7f8c8d;">Завантаження...</p>
+            </div>
+        </div>
+
+        <div class="dashboard-section" id="section-users" style="display:none">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #2c3e50;">Користувачі</h2>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="users-search" placeholder="Пошук по email або імені..." oninput="searchUsers()"
+                           style="padding: 8px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 250px;">
+                    <select id="users-role-filter" onchange="filterUsers()"
+                            style="padding: 8px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;">
+                        <option value="all">Всі ролі</option>
+                        <option value="admin">Admin</option>
+                        <option value="practitioner">Practitioner</option>
+                        <option value="user">User</option>
+                    </select>
+                </div>
+            </div>
+            <div id="users-table-container">
+                <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">ID</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Ім'я / Email</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Роль</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Статус</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Реєстрація</th>
+                            <th style="text-align: center; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                        <tr><td colspan="6" style="padding: 40px; text-align: center; color: #7f8c8d;">Завантаження...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="dashboard-section" id="section-brain" style="display:none">
+            <h2>Brain Insights</h2>
+            <p>Завантаження...</p>
+        </div>
+
+        <div class="dashboard-section" id="section-stats" style="display:none">
+            <h2>Статистика</h2>
+            <p>Завантаження...</p>
+        </div>
+
+        <div class="dashboard-section" id="section-map" style="display:none">
+            <h2>Карта спеціалістів</h2>
+            <p>Завантаження...</p>
+        </div>
+
+        <div class="dashboard-section" id="section-settings" style="display:none">
+            <h2>Налаштування</h2>
+            <p>Завантаження...</p>
+        </div>
+    </div>
+
+    <script>
+        window.showSection = function(sectionName) {
+            document.querySelectorAll('.dashboard-section').forEach(function(s) { s.style.display = 'none'; });
+            var target = document.getElementById('section-' + sectionName);
+            if (target) target.style.display = 'block';
+            if (window.HealerSidebar) HealerSidebar.setActiveSection(sectionName);
+            if (sectionName === 'users' && typeof loadUsers === 'function') loadUsers();
+        };
+    </script>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const TOKEN = localStorage.getItem('access_token');
-        if (!TOKEN) window.location.href = '/login';
+        (async function () {
+            var user = await HealerAuth.checkAuth();
+            if (!user || user.role !== 'admin') {
+                HealerAuth.logout();
+                return;
+            }
 
-        async function authFetch(url, options = {}) {
-            const res = await fetch(url, {
-                ...options,
-                headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json', ...(options.headers || {}) }
-            });
-            if (res.status === 401) { window.location.href = '/login'; return null; }
-            return res;
-        }
+            if (window.HealerSidebar) HealerSidebar.renderSidebar('sidebar-container');
 
-        let allData = [];
-        const map = L.map('map').setView([50.45, 30.52], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        let markers = [];
+            var allData = [];
+            var map = L.map('map').setView([50.45, 30.52], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            var markers = [];
 
-        async function load() {
-            const r = await authFetch('/api/specialists');
-            if (!r) return;
-            allData = await r.json();
-            render(allData);
-        }
+            async function load() {
+                var data = await HealerAPI.get('/api/specialists');
+                if (!data) return;
+                allData = data;
+                render(allData);
+            }
 
         function render(data) {
             // Очистка мапи
@@ -164,8 +303,8 @@
         }
 
         function toggleMap() {
-            const m = document.getElementById('map');
-            const btn = document.getElementById('map-toggle-btn');
+            var m = document.getElementById('map');
+            var btn = document.getElementById('map-toggle-btn');
             if (m.style.display === 'none') {
                 m.style.display = 'block';
                 map.invalidateSize();
@@ -176,55 +315,99 @@
             }
         }
 
-        load();
+            window._dashboardLoad = load;
+            load();
+        })();
     </script>
 
     <script>
         async function loadDashboardStats() {
             try {
-                const response = await authFetch('/api/dashboard/stats');
-                if (!response) return;
-                const data = await response.json();
+                var data = await HealerAPI.get('/api/dashboard/stats');
+                if (!data) return;
                 document.getElementById('total-users').textContent = data.total_users;
                 document.getElementById('total-conversations').textContent = data.total_conversations;
                 document.getElementById('total-messages').textContent = data.total_messages;
                 document.getElementById('total-specialists').textContent = data.total_specialists;
                 document.getElementById('active-week').textContent = data.active_last_week;
+                var ou = document.getElementById('overview-users');
+                var os = document.getElementById('overview-specialists');
+                var ob = document.getElementById('overview-bookings');
+                if (ou) ou.textContent = data.total_users != null ? data.total_users : '—';
+                if (os) os.textContent = data.total_specialists != null ? data.total_specialists : '—';
+                if (ob) ob.textContent = data.total_bookings != null ? data.total_bookings : '—';
             } catch (error) {
                 console.error('Failed to load stats:', error);
             }
         }
 
+        var allApplications = [];
+        var currentAppFilter = 'pending';
+
         async function loadApplications() {
-            const res = await authFetch('/api/admin/applications');
-            if (!res) return;
-            const apps = await res.json();
-            const el = document.getElementById('applications-list');
-            if (!apps.length) {
-                el.innerHTML = '<div style="background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);color:#888;">Немає заявок</div>';
+            try {
+                var data = await HealerAPI.get('/api/admin/applications');
+                allApplications = Array.isArray(data) ? data : (data.items || data.applications || []);
+                renderApplications();
+                var pendingCount = allApplications.filter(function(a) { return a.status === 'pending'; }).length;
+                if (window.HealerSidebar) HealerSidebar.updateBadge('applications', pendingCount);
+                var op = document.getElementById('overview-pending');
+                if (op) op.textContent = pendingCount;
+            } catch (e) {
+                document.getElementById('applications-list').innerHTML = '<p style="color:#e74c3c;">Помилка завантаження заявок</p>';
+            }
+        }
+
+        function filterApplications(status) {
+            currentAppFilter = status;
+            document.querySelectorAll('.app-filter').forEach(function(btn) {
+                btn.classList.remove('active-filter');
+                btn.style.background = 'white';
+                btn.style.color = '#666';
+                btn.style.borderColor = '#ddd';
+            });
+            var activeBtn = document.getElementById('filter-' + (status === 'all' ? 'all' : status));
+            if (activeBtn) {
+                activeBtn.classList.add('active-filter');
+                activeBtn.style.background = '#4a7c59';
+                activeBtn.style.color = 'white';
+                activeBtn.style.borderColor = '#4a7c59';
+            }
+            renderApplications();
+        }
+
+        function renderApplications() {
+            var filtered = currentAppFilter === 'all' ? allApplications : allApplications.filter(function(a) { return a.status === currentAppFilter; });
+            var container = document.getElementById('applications-list');
+            if (!container) return;
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="color:#7f8c8d;">Немає заявок за обраним фільтром</p>';
                 return;
             }
-            el.innerHTML = '<table><thead><tr><th>Ім\'я</th><th>Спеціальність</th><th>Тип</th><th>Досвід</th><th>Ставка</th><th>Статус</th><th>Дії</th></tr></thead><tbody>' +
-                apps.map(a => {
-                    const statusColor = a.status === 'pending' ? '#fff3cd' : (a.status === 'approved' ? '#d4edda' : '#f8d7da');
-                    const statusText = a.status === 'pending' ? '⏳ Очікує' : (a.status === 'approved' ? '✅ Схвалено' : '❌ Відхилено');
-                    const actions = a.status === 'pending' ?
-                        '<button onclick="reviewApp(' + a.id + ',\'approved\')" style="padding:4px 10px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-right:4px;">Схвалити</button>' +
-                        '<button onclick="reviewApp(' + a.id + ',\'rejected\')" style="padding:4px 10px;background:#e74c3c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Відхилити</button>'
-                        : '';
-                    return '<tr><td><strong>' + escapeHtml(a.name) + '</strong></td><td>' + escapeHtml(a.specialty) + '</td><td>' + escapeHtml(a.service_type) + '</td><td>' + a.experience_years + ' р.</td><td>' + a.hourly_rate + ' грн</td><td><span style="background:' + statusColor + ';padding:4px 8px;border-radius:8px;font-size:12px;">' + statusText + '</span></td><td>' + actions + '</td></tr>';
-                }).join('') + '</tbody></table>';
+            container.innerHTML = filtered.map(function(a) {
+                var statusColor = a.status === 'pending' ? '#fff3cd' : (a.status === 'approved' ? '#d4edda' : '#f8d7da');
+                var statusText = a.status === 'pending' ? '⏳ Очікує' : (a.status === 'approved' ? '✅ Схвалено' : '❌ Відхилено');
+                var actions = a.status === 'pending' ?
+                    '<button onclick="reviewApp(' + a.id + ',\'approved\')" style="padding:6px 14px;background:#27ae60;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;margin-right:8px;">Схвалити</button>' +
+                    '<button onclick="reviewApp(' + a.id + ',\'rejected\')" style="padding:6px 14px;background:#e74c3c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Відхилити</button>' : '';
+                return '<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;flex-wrap:wrap;align-items:center;gap:16px;">' +
+                    '<div style="flex:1;min-width:200px;"><strong style="font-size:16px;">' + escapeHtml(a.name || a.full_name || '') + '</strong><div style="color:#666;font-size:14px;margin-top:4px;">' + escapeHtml(a.specialty || '') + '</div></div>' +
+                    '<div style="font-size:13px;color:#888;">' + escapeHtml(a.service_type || '') + ' · ' + (a.experience_years != null ? a.experience_years + ' р.' : '') + ' · ' + (a.hourly_rate != null ? a.hourly_rate + ' грн/год' : '') + '</div>' +
+                    '<span style="background:' + statusColor + ';padding:6px 12px;border-radius:8px;font-size:13px;">' + statusText + '</span>' +
+                    '<div>' + actions + '</div></div>';
+            }).join('');
         }
 
         async function reviewApp(id, status) {
-            const comment = status === 'rejected' ? prompt('Причина відхилення:') : 'Welcome to Healer Nexus!';
+            var comment = status === 'rejected' ? prompt('Причина відхилення:') : 'Welcome to Healer Nexus!';
             if (status === 'rejected' && comment === null) return;
-            const res = await authFetch('/api/admin/applications/' + id, {
-                method: 'PUT',
-                body: JSON.stringify({ status: status, admin_comment: comment || '' })
-            });
-            if (res && res.ok) { loadApplications(); load(); }
-            else { alert('Помилка обробки заявки'); }
+            try {
+                var result = await HealerAPI.put('/api/admin/applications/' + id, { status: status, admin_comment: comment || '' });
+                if (result !== null && result !== undefined) { loadApplications(); if (window._dashboardLoad) window._dashboardLoad(); }
+                else { alert('Помилка обробки заявки'); }
+            } catch (e) {
+                alert('Помилка обробки заявки');
+            }
         }
 
         function escapeHtml(s) {
@@ -234,9 +417,73 @@
             return div.innerHTML;
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        var allUsers = [];
+
+        async function loadUsers() {
+            try {
+                var data = await HealerAPI.get('/api/admin/users');
+                allUsers = Array.isArray(data) ? data : (data.items || data.users || []);
+                filterUsers();
+            } catch (e) {
+                var tbody = document.getElementById('users-tbody');
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#e74c3c;">Помилка завантаження користувачів</td></tr>';
+            }
+        }
+
+        function searchUsers() { filterUsers(); }
+        function filterUsers() {
+            var query = (document.getElementById('users-search') && document.getElementById('users-search').value) ? document.getElementById('users-search').value.trim().toLowerCase() : '';
+            var roleFilter = (document.getElementById('users-role-filter') && document.getElementById('users-role-filter').value) ? document.getElementById('users-role-filter').value : 'all';
+            var list = allUsers.filter(function(u) {
+                var matchRole = roleFilter === 'all' || (u.role === roleFilter);
+                var name = (u.name || u.full_name || '').toLowerCase();
+                var email = (u.email || '').toLowerCase();
+                var matchSearch = !query || name.indexOf(query) !== -1 || email.indexOf(query) !== -1;
+                return matchRole && matchSearch;
+            });
+            renderUsers(list);
+        }
+
+        function renderUsers(users) {
+            var tbody = document.getElementById('users-tbody');
+            if (!tbody) return;
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:40px; text-align:center; color:#7f8c8d;">Користувачів не знайдено</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(function(u) {
+                var roleBadge = '';
+                if (u.role === 'admin') roleBadge = '<span style="background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:10px; font-size:12px;">Admin</span>';
+                else if (u.role === 'practitioner') roleBadge = '<span style="background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:10px; font-size:12px;">Спеціаліст</span>';
+                else roleBadge = '<span style="background:#f5f5f5; color:#666; padding:3px 10px; border-radius:10px; font-size:12px;">User</span>';
+                var statusDot = u.is_active !== false
+                    ? '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#4caf50; margin-right:6px;"></span>Активний'
+                    : '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#e74c3c; margin-right:6px;"></span>Неактивний';
+                var date = u.created_at ? new Date(u.created_at).toLocaleDateString('uk-UA') : '—';
+                var roleSelect = '<select onchange="changeUserRole(' + u.id + ', this.value)" style="padding:4px 8px; border:1px solid #ddd; border-radius:6px; font-size:12px;">' +
+                    '<option value="user"' + (u.role === 'user' ? ' selected' : '') + '>User</option>' +
+                    '<option value="practitioner"' + (u.role === 'practitioner' ? ' selected' : '') + '>Practitioner</option>' +
+                    '<option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option>' +
+                    '</select>';
+                var nameEmail = escapeHtml(u.name || u.full_name || '') || escapeHtml(u.email || '—');
+                if (u.email) nameEmail = (escapeHtml(u.name || u.full_name || '') ? escapeHtml(u.name || u.full_name) + ' <span style="color:#888;">' + escapeHtml(u.email) + '</span>' : escapeHtml(u.email));
+                return '<tr style="border-top:1px solid #f0f0f0;"><td style="padding:12px 16px; font-size:13px;">' + (u.id || '—') + '</td><td style="padding:12px 16px;">' + nameEmail + '</td><td style="padding:12px 16px;">' + roleBadge + '</td><td style="padding:12px 16px; font-size:13px;">' + statusDot + '</td><td style="padding:12px 16px; font-size:13px;">' + date + '</td><td style="padding:12px 16px; text-align:center;">' + roleSelect + '</td></tr>';
+            }).join('');
+        }
+
+        async function changeUserRole(id, role) {
+            try {
+                await HealerAPI.put('/api/admin/users/' + id, { role: role });
+                loadUsers();
+            } catch (e) {
+                alert('Помилка зміни ролі: ' + (e.message || e));
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
             loadDashboardStats();
             loadApplications();
+            loadUsers();
             setInterval(loadDashboardStats, 30000);
         });
     </script>
