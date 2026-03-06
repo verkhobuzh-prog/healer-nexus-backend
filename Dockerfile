@@ -1,18 +1,21 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Системні пакети для psutil та pygame
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    libsdl2-dev \
+    libffi-dev \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-# Додаємо google-generativeai прямо сюди, щоб ігнорувати кеш requirements.txt
-RUN pip install --no-cache-dir google-generativeai -r requirements.txt
+RUN pip install --upgrade pip
+
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 COPY . .
 
-# Тимчасовий запуск за замовчуванням
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PORT=8080
+EXPOSE 8080
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

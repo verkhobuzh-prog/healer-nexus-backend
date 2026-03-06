@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.git
+.env
+.venv
+venv
+node_modules
+*.md
+.cursor
+legacy/
+legacy_backend_DO_NOT_USE/
