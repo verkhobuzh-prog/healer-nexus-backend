@@ -38,6 +38,7 @@ from app.api.recommendation_router import router as recommendation_router
 from app.api.specialist_pages_router import router as specialist_pages_router
 from app.api.dashboard_pages_router import router as dashboard_pages_router
 from app.api.seo_router import router as seo_router
+from app.api.telegram_webhook_router import router as telegram_webhook_router
 
 # Background tasks
 from app.services.blog_scheduler import blog_scheduler
@@ -147,6 +148,7 @@ app.include_router(recommendation_router)
 app.include_router(specialist_pages_router)
 app.include_router(dashboard_pages_router)
 app.include_router(seo_router)
+app.include_router(telegram_webhook_router)
 
 # Templates for dashboard login
 _templates_dir = Path(__file__).resolve().parent / "templates"

@@ -13,6 +13,8 @@ from app.ai.providers import get_ai_provider
 
 logger = logging.getLogger(__name__)
 
+_bot_instance = None
+
 
 class HealerNexusBot:
     def __init__(self):
@@ -53,6 +55,15 @@ class HealerNexusBot:
 
         self.db_session_maker = async_session_maker
         self.current_role = {}
+
+        global _bot_instance
+        _bot_instance = self
+
+    def _register_handlers(self):
+        """Register handlers (used by both run_polling and webhook)."""
+        self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
 
     async def get_or_create_user(self, session, tg_user):
         """Отримати або створити користувача"""
@@ -187,12 +198,23 @@ class HealerNexusBot:
 
     def run(self):
         """Запуск бота"""
-        self.application.add_handler(CommandHandler("start", self.start))
-        self.application.add_handler(CallbackQueryHandler(self.button_callback))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-        
+        self._register_handlers()
         print("🚀 Healer Nexus Bot запущено з лімітами")
         self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+async def process_update(data: dict) -> None:
+    """Process incoming Telegram update from webhook."""
+    global _bot_instance
+    if _bot_instance is None:
+        _bot_instance = HealerNexusBot()
+        _bot_instance._register_handlers()
+        await _bot_instance.application.initialize()
+
+    update = Update.de_json(data, _bot_instance.application.bot)
+    if update:
+        await _bot_instance.application.process_update(update)
+
 
 if __name__ == "__main__":
     bot = HealerNexusBot()
