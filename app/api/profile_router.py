@@ -43,17 +43,21 @@ async def update_social_links(
         return SocialLinksResponse(
             links=[SocialLinkItem(**x) for x in links],
             supported_platforms=SUPPORTED_PLATFORMS,
+            telegram_channel_id=practitioner.telegram_channel_id,
         )
     cleaned = validate_social_links(raw)
     existing = dict(practitioner.social_links or {})
     existing.update(cleaned)
     practitioner.social_links = existing
+    if body.telegram_channel_id is not None:
+        practitioner.telegram_channel_id = body.telegram_channel_id.strip() or None
     await db.commit()
     await db.refresh(practitioner)
     links = build_all_social_urls(practitioner.social_links)
     return SocialLinksResponse(
         links=[SocialLinkItem(**x) for x in links],
         supported_platforms=SUPPORTED_PLATFORMS,
+        telegram_channel_id=practitioner.telegram_channel_id,
     )
 
 
@@ -66,6 +70,7 @@ async def get_my_social_links(
     return SocialLinksResponse(
         links=[SocialLinkItem(**x) for x in links],
         supported_platforms=SUPPORTED_PLATFORMS,
+        telegram_channel_id=practitioner.telegram_channel_id,
     )
 
 
