@@ -20,6 +20,9 @@ from app.schemas.specialist_application import (
     RoleUpdate,
 )
 from app.core.security import hash_password
+from app.config import settings
+from app.services.promoterx_service import PromoterXService
+
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 # --- Users ---
 @router.get("/users")
@@ -169,3 +172,13 @@ async def review_application(
         "user_id": application.user_id,
         "status": body.status,
     }
+
+
+@router.post("/promoterx/test-report")
+async def promoterx_test_report(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger daily report now and return its text. Admin only."""
+    report = await PromoterXService.generate_daily_report(db, settings.PROJECT_ID)
+    return {"status": "sent", "report": report}

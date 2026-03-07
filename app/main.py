@@ -3,8 +3,10 @@ Healer Nexus — Main Application
 Fixed: removed debug endpoints, GEMINI_ENABLED guard on scheduler, clean startup
 """
 
+import asyncio
 import logging
 import os
+from datetime import datetime, timezone, timedelta
 
 from pathlib import Path
 
@@ -40,6 +42,8 @@ from app.api.seo_router import router as seo_router
 # Background tasks
 from app.services.blog_scheduler import blog_scheduler
 from app.services.blog_analytics_aggregator import blog_analytics_aggregator
+from app.services.promoterx_service import PromoterXService
+from app.database.connection import async_session_maker
 
 # Logging
 logging.basicConfig(
@@ -95,7 +99,27 @@ async def startup():
     # Analytics aggregator doesn't need Gemini — always start
     await blog_analytics_aggregator.start()
 
+    asyncio.create_task(promoterx_daily_loop())
+
     logger.info("Healer Nexus started")
+
+
+async def promoterx_daily_loop():
+    """Wait until 09:00 UTC then run daily report; repeat every 24h."""
+    while True:
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        next_09 = datetime(today.year, today.month, today.day, 9, 0, 0, tzinfo=timezone.utc)
+        if now >= next_09:
+            next_09 += timedelta(days=1)
+        delay = (next_09 - now).total_seconds()
+        logger.info("PromoterX: next daily report at %s (in %.0fs)", next_09.isoformat(), delay)
+        await asyncio.sleep(delay)
+        try:
+            async with async_session_maker() as db:
+                await PromoterXService.generate_daily_report(db, settings.PROJECT_ID)
+        except Exception as e:
+            logger.exception("PromoterX daily report failed: %s", e)
 
 
 @app.on_event("shutdown")
