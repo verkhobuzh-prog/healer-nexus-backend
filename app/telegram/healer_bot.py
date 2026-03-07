@@ -210,6 +210,7 @@ async def process_update(data: dict) -> None:
         _bot_instance = HealerNexusBot()
         _bot_instance._register_handlers()
         await _bot_instance.application.initialize()
+        await _bot_instance.application.start()
 
     update = Update.de_json(data, _bot_instance.application.bot)
     if update:
