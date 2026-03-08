@@ -84,25 +84,29 @@ async def health():
 # --- Startup / Shutdown ---
 @app.on_event("startup")
 async def startup():
-    await init_db()
-    await seed_database()
+    try:
+        await init_db()
+        await seed_database()
 
-    # Gemini status
-    if settings.GEMINI_ENABLED:
-        logger.info("Gemini AI: enabled")
-    else:
-        logger.info("Gemini AI: disabled (GEMINI_ENABLED=false or no API key)")
+        # Gemini status
+        if settings.GEMINI_ENABLED:
+            logger.info("Gemini AI: enabled")
+        else:
+            logger.info("Gemini AI: disabled (GEMINI_ENABLED=false or no API key)")
 
-    # Blog scheduler uses Gemini for auto-generation — only start if AI enabled
-    if settings.GEMINI_ENABLED:
-        await blog_scheduler.start()
+        # Blog scheduler uses Gemini for auto-generation — only start if AI enabled
+        if settings.GEMINI_ENABLED:
+            await blog_scheduler.start()
 
-    # Analytics aggregator doesn't need Gemini — always start
-    await blog_analytics_aggregator.start()
+        # Analytics aggregator doesn't need Gemini — always start
+        await blog_analytics_aggregator.start()
 
-    asyncio.create_task(promoterx_daily_loop())
+        asyncio.create_task(promoterx_daily_loop())
 
-    logger.info("Healer Nexus started")
+        logger.info("Healer Nexus started")
+    except Exception as e:
+        logger.warning("Startup task failed (non-critical): %s", e)
+        logger.info("Healer Nexus started (some startup tasks skipped)")
 
 
 async def promoterx_daily_loop():
