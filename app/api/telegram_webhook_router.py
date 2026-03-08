@@ -2,8 +2,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
 
-from app.telegram.healer_bot import process_update
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram"])
@@ -17,6 +15,7 @@ async def telegram_webhook(request: Request):
         logger.info("Telegram webhook received: %s", data.get("update_id", "unknown"))
 
         try:
+            from app.telegram.healer_bot import process_update
             await process_update(data)
         except Exception as e:
             logger.exception("process_update error: %s", e)
