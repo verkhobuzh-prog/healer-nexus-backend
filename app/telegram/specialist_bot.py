@@ -6,6 +6,7 @@ Specialist Bot — для цілителів, художників, вчител
 from __future__ import annotations
 
 import logging
+import os
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -214,6 +215,12 @@ class SpecialistBot:
         self.app.add_handler(CommandHandler("promote", self.promote))
         self.app.add_handler(CallbackQueryHandler(self.callback_service_type))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text))
+        if os.getenv("TELEGRAM_USE_POLLING", "").lower() not in ("1", "true", "yes"):
+            logger.info(
+                "SpecialistBot: polling вимкнено (webhook mode). "
+                "Для локального polling встановіть TELEGRAM_USE_POLLING=1"
+            )
+            return
         logger.info("SpecialistBot: запуск поллінгу")
         self.app.run_polling(allowed_updates=Update.ALL_TYPES)
 

@@ -67,18 +67,7 @@ async def init_db():
         print("✅ База даних ініціалізована")
     except Exception as e:
         print(f"⚠️ create_all failed: {e}")
-        if "sqlite" in _database_url.lower():
-            print("🔄 Видаляємо стару базу і створюємо заново...")
-            db_path = "./healer_nexus.db"
-            if os.path.exists(db_path):
-                await engine.dispose()
-                os.remove(db_path)
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            print("✅ База даних створена заново")
-        else:
-            print(f"⚠️ create_all warning (non-fatal): {e}")
-            print("✅ Продовжуємо з існуючою базою")
+        print("✅ Продовжуємо з існуючою базою")
 
 
 async def get_db():

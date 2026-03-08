@@ -19,7 +19,14 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # --- Client init ---
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+client = None
+try:
+    if settings.GEMINI_API_KEY:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    else:
+        logger.warning("GEMINI_API_KEY not set, AI features disabled")
+except Exception as e:
+    logger.warning("Failed to init Gemini client: %s", e)
 
 MODEL_NAME = "gemini-2.5-flash"
 
@@ -139,6 +146,20 @@ class GeminiProvider:
 
     async def generate_response(self, message, history, role="default", user_id=0, db=None):
         """Main entry: generate response with optional function calling."""
+        if client is None:
+            return {
+                "text": "AI is temporarily unavailable (Gemini not configured).",
+                "metadata": {
+                    "detected_service": "general",
+                    "confidence": 0.0,
+                    "user_intent": "general",
+                    "anxiety_score": 0.0,
+                    "response_mode": "disabled",
+                    "smart_link": "/specialists",
+                    "top_specialists": [],
+                    "show_buttons": False,
+                },
+            }
         detected_service = self._detect_service(message)
 
         top_specialists = []
@@ -198,6 +219,8 @@ class GeminiProvider:
             max_output_tokens=1024,
         )
 
+        if client is None:
+            return "AI is temporarily unavailable (Gemini not configured)."
         response = await client.aio.models.generate_content(
             model=self.model, contents=contents, config=config,
         )
@@ -245,6 +268,8 @@ class GeminiProvider:
             max_output_tokens=1024,
         )
 
+        if client is None:
+            return "AI is temporarily unavailable (Gemini not configured)."
         try:
             response = await client.aio.models.generate_content(
                 model=self.model, contents=contents, config=config,

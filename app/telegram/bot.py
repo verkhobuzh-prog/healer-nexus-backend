@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
+
 
 class HealerAdminBot:
     def __init__(self):
@@ -24,6 +26,9 @@ class HealerAdminBot:
 
         await self.application.initialize()
         await self.application.start()
+        if os.getenv("TELEGRAM_USE_POLLING", "").lower() not in ("1", "true", "yes"):
+            logging.getLogger(__name__).info("HealerAdminBot: polling вимкнено (webhook mode). TELEGRAM_USE_POLLING=1 для polling.")
+            return
         await self.application.updater.start_polling()
         print("✅ Telegram Admin Bot працює")
 

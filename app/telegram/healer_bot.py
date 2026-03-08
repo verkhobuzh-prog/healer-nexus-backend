@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from sqlalchemy import select
@@ -197,20 +198,27 @@ class HealerNexusBot:
                 await update.message.reply_text(f"❌ Помилка: {str(e)}")
 
     def run(self):
-        """Запуск бота"""
+        """Запуск бота (polling). Щоб не видаляти webhook, викликається лише при TELEGRAM_USE_POLLING=1."""
         self._register_handlers()
+        if os.getenv("TELEGRAM_USE_POLLING", "").lower() not in ("1", "true", "yes"):
+            logger.info(
+                "Healer bot: polling вимкнено (webhook mode). "
+                "Для локального polling встановіть TELEGRAM_USE_POLLING=1"
+            )
+            return
         print("🚀 Healer Nexus Bot запущено з лімітами")
         self.application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 async def process_update(data: dict) -> None:
-    """Process incoming Telegram update from webhook."""
+    """Process incoming Telegram update from webhook. Uses only initialize() (no start()) so webhook is never deleted."""
     global _bot_instance
+    logger.info("process_update called with: %s", data)
+    logger.info("_bot_instance: %s", _bot_instance)
     if _bot_instance is None:
         _bot_instance = HealerNexusBot()
         _bot_instance._register_handlers()
         await _bot_instance.application.initialize()
-        await _bot_instance.application.start()
 
     update = Update.de_json(data, _bot_instance.application.bot)
     if update:

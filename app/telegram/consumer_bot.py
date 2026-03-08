@@ -6,6 +6,7 @@ Consumer Bot — для клієнтів, які шукають послуги.
 from __future__ import annotations
 
 import logging
+import os
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -132,6 +133,12 @@ class ConsumerBot:
         self.app.add_handler(CommandHandler("feedback", self.feedback))
         self.app.add_handler(CallbackQueryHandler(self.callback_search_by_type))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        if os.getenv("TELEGRAM_USE_POLLING", "").lower() not in ("1", "true", "yes"):
+            logger.info(
+                "ConsumerBot: polling вимкнено (webhook mode). "
+                "Для локального polling встановіть TELEGRAM_USE_POLLING=1"
+            )
+            return
         logger.info("ConsumerBot: запуск поллінгу")
         self.app.run_polling(allowed_updates=Update.ALL_TYPES)
 

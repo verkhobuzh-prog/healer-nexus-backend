@@ -2,10 +2,12 @@
 Запуск Specialist та Consumer ботів одночасно.
 Кожен бот у власному потоці; якщо токен порожній — бот не запускається.
 Таймаути як у healer_bot: connect 30s, read 60s.
+Щоб не видаляти webhook, polling запускається лише при TELEGRAM_USE_POLLING=1.
 """
 from __future__ import annotations
 
 import logging
+import os
 import threading
 
 from app.config import settings
@@ -30,7 +32,10 @@ def _run_consumer_bot() -> None:
 
 
 def run_both_bots() -> None:
-    """Запустити обидва боти одночасно (окремі потоки). Порожні токени пропускаються."""
+    """Запустити обидва боти одночасно (окремі потоки). Порожні токени пропускаються. Без TELEGRAM_USE_POLLING=1 не запускає polling (webhook mode)."""
+    if os.getenv("TELEGRAM_USE_POLLING", "").lower() not in ("1", "true", "yes"):
+        logger.info("bot_runner: polling вимкнено (webhook mode). Встановіть TELEGRAM_USE_POLLING=1 для запуску ботів.")
+        return
     specialist_token = getattr(settings, "HEALER_SPECIALIST_BOT_TOKEN", None) or ""
     consumer_token = getattr(settings, "HEALER_CONSUMER_BOT_TOKEN", None) or ""
 

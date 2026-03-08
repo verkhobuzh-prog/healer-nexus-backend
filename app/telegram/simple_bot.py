@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from app.config import settings
@@ -58,6 +59,9 @@ async def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    if os.getenv("TELEGRAM_USE_POLLING", "").lower() not in ("1", "true", "yes"):
+        print("TELEGRAM_USE_POLLING не ввімкнено. Встановіть TELEGRAM_USE_POLLING=1 для polling.")
+        return
     print("🤖 Бот забігав! Перевіряй Telegram.")
     await app.initialize()
     await app.start()
