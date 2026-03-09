@@ -35,12 +35,6 @@
         
         .name { font-size: 1.5rem; margin: 10px 0; }
         .btn { display: block; text-align: center; padding: 10px; background: #3498db; color: white; text-decoration: none; border-radius: 10px; margin-top: 10px; }
-
-        /* Dashboard stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); text-align: center; }
-        .stat-card h2 { margin: 0; font-size: 2rem; color: #2c3e50; }
-        .stat-card p { margin: 8px 0 0; font-size: 0.9rem; color: #7f8c8d; }
     </style>
 </head>
 <body>
@@ -104,35 +98,7 @@
                 </div>
             </div>
 
-    <div class="stats-grid">
-        <div class="stat-card">
-            <h2 id="total-users">0</h2>
-            <p>Total Users</p>
-        </div>
-        <div class="stat-card">
-            <h2 id="total-conversations">0</h2>
-            <p>Conversations</p>
-        </div>
-        <div class="stat-card">
-            <h2 id="total-messages">0</h2>
-            <p>Messages</p>
-        </div>
-        <div class="stat-card">
-            <h2 id="total-specialists">0</h2>
-            <p>Active Specialists</p>
-        </div>
-        <div class="stat-card">
-            <h2 id="active-week">0</h2>
-            <p>Active Last Week</p>
-        </div>
-    </div>
-
-    <div class="filter-panel">
-        <button class="filter-btn btn-all active" onclick="filterNiche('all')">Всі</button>
-        <button class="filter-btn btn-healer" onclick="filterNiche('healer')">Цілителі</button>
-        <button class="filter-btn btn-design3d" onclick="filterNiche('3d-design')">3D Дизайн</button>
-        <button class="filter-btn btn-design" onclick="filterNiche('designer')">Дизайнери</button>
-    </div>
+    <div id="overview-filters" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;"></div>
 
     <div class="map-container">
         <button class="filter-btn btn-all" onclick="toggleMap()" id="map-toggle-btn">🗺️ Показати мапу</button>
@@ -313,7 +279,25 @@
                 var data = await HealerAPI.get('/api/specialists');
                 if (!data) return;
                 allData = data;
+                buildOverviewFilters();
                 render(allData);
+            }
+
+            function buildOverviewFilters() {
+                var types = {};
+                allData.forEach(function(s) {
+                    var t = s.service_type || s.niche || '';
+                    if (t) types[t] = (types[t] || 0) + 1;
+                });
+                var container = document.getElementById('overview-filters');
+                if (!container) return;
+                var html = '<button type="button" class="filter-btn overview-filter-btn active" data-niche="all" onclick="filterNiche(\'all\')" style="padding:10px 20px; border-radius:20px; border:2px solid #4a7c59; background:#4a7c59; color:white; cursor:pointer; font-weight:bold;">Всі (' + allData.length + ')</button>';
+                Object.keys(types).sort().forEach(function(t) {
+                    var label = t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ');
+                    var safeT = t.replace(/'/g, "\\'");
+                    html += '<button type="button" class="filter-btn overview-filter-btn" data-niche="' + t.replace(/"/g, '&quot;') + '" onclick="filterNiche(\'' + safeT + '\')" style="padding:10px 20px; border-radius:20px; border:2px solid #ddd; background:white; color:#555; cursor:pointer; font-weight:bold;">' + label + ' (' + types[t] + ')</button>';
+                });
+                container.innerHTML = html;
             }
 
         function render(data) {
@@ -358,14 +342,25 @@
         }
 
         function filterNiche(niche) {
-            // Візуальний ефект кнопок
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-
+            var container = document.getElementById('overview-filters');
+            if (container) {
+                container.querySelectorAll('.overview-filter-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                    b.style.background = 'white';
+                    b.style.color = '#555';
+                    b.style.borderColor = '#ddd';
+                });
+                if (event && event.target && event.target.classList && event.target.classList.contains('overview-filter-btn')) {
+                    event.target.classList.add('active');
+                    event.target.style.background = '#4a7c59';
+                    event.target.style.color = 'white';
+                    event.target.style.borderColor = '#4a7c59';
+                }
+            }
             if (niche === 'all') {
                 render(allData);
             } else {
-                const filtered = allData.filter(s => (s.service_type || s.niche || '').toLowerCase().includes(niche));
+                var filtered = allData.filter(function(s) { return (s.service_type || s.niche || '') === niche; });
                 render(filtered);
             }
         }
@@ -395,11 +390,6 @@
             try {
                 var data = await HealerAPI.get('/api/dashboard/stats');
                 if (!data) return;
-                document.getElementById('total-users').textContent = data.total_users;
-                document.getElementById('total-conversations').textContent = data.total_conversations;
-                document.getElementById('total-messages').textContent = data.total_messages;
-                document.getElementById('total-specialists').textContent = data.total_specialists;
-                document.getElementById('active-week').textContent = data.active_last_week;
                 var ou = document.getElementById('overview-users');
                 var os = document.getElementById('overview-specialists');
                 var ob = document.getElementById('overview-bookings');
