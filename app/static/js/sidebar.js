@@ -10,23 +10,23 @@
 
     function getStyles() {
         return '<style id="' + SIDEBAR_STYLE_ID + '">' +
-            '.healer-sidebar { width: 260px; position: fixed; left: 0; top: 0; bottom: 0; background: #f8f9fa; border-right: 1px solid #e9ecef; overflow-y: auto; z-index: 100; }' +
-            '.healer-sidebar .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid #e9ecef; }' +
-            '.healer-sidebar .sidebar-logo h2 { margin: 0; font-size: 18px; color: #1a1a2e; font-weight: 700; }' +
-            '.healer-sidebar .sidebar-logo small { display: block; margin-top: 4px; font-size: 12px; color: #6c757d; }' +
-            '.healer-sidebar .nav { padding: 16px 0; }' +
+            '.healer-sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: #f8f9fa; display: flex; flex-direction: column; z-index: 1000; border-right: 1px solid #e9ecef; }' +
+            '.healer-sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }' +
+            '.healer-sidebar .nav { padding: 0; }' +
             '.healer-sidebar .nav a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #495057; text-decoration: none; font-size: 14px; transition: background 0.2s, color 0.2s; border: none; background: none; width: 100%; text-align: left; cursor: pointer; font-family: inherit; }' +
             '.healer-sidebar .nav a:hover { background: #e9ecef; color: #1a1a2e; }' +
             '.healer-sidebar .nav a.active { background: #4a7c59; color: #fff; }' +
             '.healer-sidebar .nav a.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }' +
             '.healer-sidebar .nav .badge { margin-left: auto; background: #e74c3c; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; min-width: 20px; text-align: center; }' +
-            '.healer-sidebar .sidebar-footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; border-top: 1px solid #e9ecef; background: #f8f9fa; }' +
-            '.healer-sidebar .sidebar-footer .user-name { font-weight: 600; font-size: 14px; color: #1a1a2e; }' +
-            '.healer-sidebar .sidebar-footer .user-role { display: inline-block; margin-top: 4px; font-size: 11px; padding: 2px 8px; border-radius: 8px; background: #dee2e6; color: #495057; }' +
-            '.healer-sidebar .sidebar-footer .user-role.admin { background: #4a7c59; color: #fff; }' +
-            '.healer-sidebar .sidebar-footer .user-role.practitioner { background: #667eea; color: #fff; }' +
-            '.healer-sidebar .sidebar-footer .btn-logout { display: block; width: 100%; margin-top: 12px; padding: 10px 16px; background: #e74c3c; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }' +
-            '.healer-sidebar .sidebar-footer .btn-logout:hover { background: #c0392b; }' +
+            '.healer-sidebar-footer { border-top: 1px solid #e0e0e0; padding: 12px 16px; flex-shrink: 0; background: #f8f9fa; }' +
+            '.healer-sidebar-footer .user-name { font-weight: 600; font-size: 14px; color: #1a1a2e; margin: 0 0 4px 0; }' +
+            '.healer-sidebar-footer .user-role { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 8px; background: #dee2e6; color: #495057; }' +
+            '.healer-sidebar-footer .user-role.admin { background: #4a7c59; color: #fff; }' +
+            '.healer-sidebar-footer .user-role.practitioner { background: #667eea; color: #fff; }' +
+            '.healer-sidebar-footer .btn-logout { display: block; width: 100%; margin-top: 12px; padding: 10px 16px; background: #e74c3c; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }' +
+            '.healer-sidebar-footer .btn-logout:hover { background: #c0392b; }' +
+            '.healer-sidebar .sidebar-header p { margin: 0; font-size: 12px; color: #6c757d; }' +
+            '.healer-sidebar .sidebar-header h3 { margin: 0 0 4px 0; font-size: 18px; color: #1a1a2e; font-weight: 700; }' +
             '</style>';
     }
 
@@ -84,9 +84,14 @@
 
         container.innerHTML =
             '<div class="healer-sidebar">' +
-            '<div class="sidebar-logo"><h2>Healer Nexus</h2><small>Панель управління</small></div>' +
+            '<div class="sidebar-header" style="padding: 16px; flex-shrink: 0;">' +
+            '<h3>Healer Nexus</h3>' +
+            '<p>Панель управління</p>' +
+            '</div>' +
+            '<div class="healer-sidebar-nav">' +
             '<nav class="nav">' + navHtml + '</nav>' +
-            '<div class="sidebar-footer">' +
+            '</div>' +
+            '<div class="healer-sidebar-footer">' +
             '<div class="user-name">' + escapeHtml(displayName) + '</div>' +
             '<span class="user-role ' + roleClass + '">' + escapeHtml(roleLabel) + '</span>' +
             '<button type="button" class="btn-logout" onclick="HealerAuth.logout()">Вийти</button>' +
