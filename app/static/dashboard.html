@@ -371,6 +371,8 @@
                 btn.textContent = '🗺️ Показати мапу';
             }
         }
+        window.toggleMap = toggleMap;
+        window.filterNiche = filterNiche;
 
             window._dashboardLoad = load;
             load();
@@ -546,6 +548,12 @@
                 alert('Помилка зміни ролі: ' + (e.message || e));
             }
         }
+
+        window.reviewApp = reviewApp;
+        window.filterApplications = filterApplications;
+        window.searchUsers = searchUsers;
+        window.filterUsers = filterUsers;
+        window.changeUserRole = changeUserRole;
 
         window.addEventListener('DOMContentLoaded', function() {
             loadDashboardStats();
