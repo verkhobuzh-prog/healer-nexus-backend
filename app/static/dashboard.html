@@ -204,18 +204,43 @@
         </div>
 
         <div class="dashboard-section" id="section-brain" style="display:none">
-            <h2>Brain Insights</h2>
-            <p>Завантаження...</p>
+            <h2 style="margin-bottom: 16px; color: #2c3e50;">Brain Insights</h2>
+            <div style="background:white; border-radius:12px; padding:40px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:48px; margin-bottom:16px;">🧠</div>
+                <h3 style="color:#2c3e50; margin-bottom:8px;">AI Brain аналітика</h3>
+                <p style="color:#7f8c8d; max-width:400px; margin:0 auto;">Аналіз трендів, популярні методи, пропозиції нових ніш. Буде доступно після накопичення достатньої кількості даних.</p>
+            </div>
         </div>
 
         <div class="dashboard-section" id="section-stats" style="display:none">
-            <h2>Статистика</h2>
-            <p>Завантаження...</p>
+            <h2 style="margin-bottom: 16px; color: #2c3e50;">Статистика платформи</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div style="background:white; border-radius:12px; padding:20px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div id="stats-users" style="font-size:32px; font-weight:700; color:#3498db;">—</div>
+                    <div style="font-size:13px; color:#7f8c8d;">Користувачів</div>
+                </div>
+                <div style="background:white; border-radius:12px; padding:20px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div id="stats-specialists" style="font-size:32px; font-weight:700; color:#4a7c59;">—</div>
+                    <div style="font-size:13px; color:#7f8c8d;">Спеціалістів</div>
+                </div>
+                <div style="background:white; border-radius:12px; padding:20px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div id="stats-conversations" style="font-size:32px; font-weight:700; color:#9b59b6;">—</div>
+                    <div style="font-size:13px; color:#7f8c8d;">Розмов</div>
+                </div>
+                <div style="background:white; border-radius:12px; padding:20px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div id="stats-messages" style="font-size:32px; font-weight:700; color:#e67e22;">—</div>
+                    <div style="font-size:13px; color:#7f8c8d;">Повідомлень</div>
+                </div>
+                <div style="background:white; border-radius:12px; padding:20px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div id="stats-active-week" style="font-size:32px; font-weight:700; color:#2ecc71;">—</div>
+                    <div style="font-size:13px; color:#7f8c8d;">Активних за тиждень</div>
+                </div>
+            </div>
         </div>
 
         <div class="dashboard-section" id="section-map" style="display:none">
-            <h2>Карта спеціалістів</h2>
-            <p>Завантаження...</p>
+            <h2 style="margin-bottom: 16px; color: #2c3e50;">Карта спеціалістів</h2>
+            <div id="map-container-section" style="height: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);"></div>
         </div>
 
         <div class="dashboard-section" id="section-settings" style="display:none">
@@ -231,6 +256,7 @@
             if (target) target.style.display = 'block';
             if (window.HealerSidebar) HealerSidebar.setActiveSection(sectionName);
             if (sectionName === 'users' && typeof loadUsers === 'function') loadUsers();
+            if (sectionName === 'map' && typeof window.initSectionMap === 'function') window.initSectionMap();
         };
     </script>
 
@@ -249,6 +275,28 @@
             var map = L.map('map').setView([50.45, 30.52], 6);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             var markers = [];
+
+            window.initSectionMap = function() {
+                if (window._sectionMap) {
+                    window._sectionMap.invalidateSize();
+                    return;
+                }
+                var container = document.getElementById('map-container-section');
+                if (!container) return;
+                window._sectionMap = L.map('map-container-section').setView([50.45, 30.52], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window._sectionMap);
+                window._sectionMarkers = [];
+                allData.forEach(function(s) {
+                    if (s.latitude && s.longitude) {
+                        var niche = (s.service_type || s.niche || '').toLowerCase();
+                        var mColor = niche.includes('3d') ? '#e67e22' : (niche.includes('design') ? '#3498db' : '#2ecc71');
+                        var marker = L.circleMarker([s.latitude, s.longitude], { radius: 8, fillColor: mColor, color: '#fff', weight: 2, fillOpacity: 0.9 })
+                            .addTo(window._sectionMap)
+                            .bindPopup('<b>' + (s.name || '') + '</b><br>' + (s.specialty || ''));
+                        window._sectionMarkers.push(marker);
+                    }
+                });
+            };
 
             async function load() {
                 var data = await HealerAPI.get('/api/specialists');
@@ -269,6 +317,15 @@
                 if (niche.includes('3d')) colorClass = 'design3d';
                 else if (niche.includes('design')) colorClass = 'design';
 
+                var contactLink = '';
+                if (s.telegram_id) {
+                    contactLink = '<a href="https://t.me/' + s.telegram_id + '" target="_blank" class="btn">Написати</a>';
+                } else if (s.email) {
+                    contactLink = '<a href="mailto:' + s.email + '" class="btn">Email</a>';
+                } else {
+                    contactLink = '<span style="color:#95a5a6; font-size:13px;">Немає контакту</span>';
+                }
+
                 // Додавання маркера на мапу
                 const mColor = colorClass === 'healer' ? '#2ecc71' : (colorClass === 'design3d' ? '#e67e22' : '#3498db');
                 if (s.latitude && s.longitude) {
@@ -284,7 +341,7 @@
                         <h2 class="name">${s.name}</h2>
                         <p>${s.specialty}</p>
                         <div class="price"><b>${s.hourly_rate}</b> грн/год</div>
-                        <a href="https://t.me/${s.telegram_id}" class="btn">Написати</a>
+                        ${contactLink}
                     </div>`;
             }).join('');
         }
@@ -336,6 +393,16 @@
                 if (ou) ou.textContent = data.total_users != null ? data.total_users : '—';
                 if (os) os.textContent = data.total_specialists != null ? data.total_specialists : '—';
                 if (ob) ob.textContent = data.total_bookings != null ? data.total_bookings : '—';
+                var su = document.getElementById('stats-users');
+                var ss = document.getElementById('stats-specialists');
+                var sc = document.getElementById('stats-conversations');
+                var sm = document.getElementById('stats-messages');
+                var saw = document.getElementById('stats-active-week');
+                if (su) su.textContent = data.total_users != null ? data.total_users : '—';
+                if (ss) ss.textContent = data.total_specialists != null ? data.total_specialists : '—';
+                if (sc) sc.textContent = data.total_conversations != null ? data.total_conversations : '—';
+                if (sm) sm.textContent = data.total_messages != null ? data.total_messages : '—';
+                if (saw) saw.textContent = data.active_last_week != null ? data.active_last_week : '—';
             } catch (error) {
                 console.error('Failed to load stats:', error);
             }
