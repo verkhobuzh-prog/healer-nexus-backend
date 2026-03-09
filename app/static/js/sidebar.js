@@ -35,10 +35,11 @@
             return [
                 { section: 'overview', label: 'Огляд', icon: '📊' },
                 { section: 'applications', label: 'Заявки спеціалістів', icon: '📋', badge: true },
-                { section: 'users', label: 'Користувачі', icon: '👥' },
+                { section: 'users', label: 'Спеціалісти', icon: '🧑‍⚕️' },
+                { section: 'clients', label: 'Клієнти', icon: '🙋' },
                 { section: 'brain', label: 'Brain Insights', icon: '🧠' },
                 { section: 'stats', label: 'Статистика', icon: '📈' },
-                { section: 'map', label: 'Карта спеціалістів', icon: '🗺️' },
+                { section: 'map', label: 'Анкети спеціалістів', icon: '📂' },
                 { section: 'settings', label: 'Налаштування', icon: '⚙️' }
             ];
         }

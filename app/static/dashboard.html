@@ -171,16 +171,13 @@
 
         <div class="dashboard-section" id="section-users" style="display:none">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; color: #2c3e50;">Користувачі</h2>
+                <h2 style="margin: 0; color: #2c3e50;">Спеціалісти</h2>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="users-search" placeholder="Пошук по email або імені..." oninput="searchUsers()"
+                    <input type="text" id="users-search" placeholder="Пошук по імені або спеціальності..." oninput="searchUsers()"
                            style="padding: 8px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 250px;">
                     <select id="users-role-filter" onchange="filterUsers()"
                             style="padding: 8px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;">
-                        <option value="all">Всі ролі</option>
-                        <option value="admin">Admin</option>
-                        <option value="practitioner">Practitioner</option>
-                        <option value="user">User</option>
+                        <option value="all">Всі спеціальності</option>
                     </select>
                 </div>
             </div>
@@ -189,17 +186,26 @@
                     <thead>
                         <tr style="background: #f8f9fa;">
                             <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">ID</th>
-                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Ім'я / Email</th>
-                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Роль</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Ім'я / Спеціальність</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Тип</th>
                             <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Статус</th>
-                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Реєстрація</th>
-                            <th style="text-align: center; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Дії</th>
+                            <th style="text-align: left; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Ціна</th>
+                            <th style="text-align: center; padding: 14px 16px; color: #5a6c7d; font-size: 13px; font-weight: 600;">Верифікований</th>
                         </tr>
                     </thead>
                     <tbody id="users-tbody">
                         <tr><td colspan="6" style="padding: 40px; text-align: center; color: #7f8c8d;">Завантаження...</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <div class="dashboard-section" id="section-clients" style="display:none">
+            <h2 style="margin-bottom: 16px; color: #2c3e50;">Клієнти</h2>
+            <div style="background:white; border-radius:12px; padding:40px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:48px; margin-bottom:16px;">🙋</div>
+                <h3 style="color:#2c3e50; margin-bottom:8px;">Поки немає зареєстрованих клієнтів</h3>
+                <p style="color:#7f8c8d; max-width:400px; margin:0 auto;">Коли користувачі почнуть реєструватися для пошуку спеціалістів, вони з'являться тут.</p>
             </div>
         </div>
 
@@ -239,8 +245,13 @@
         </div>
 
         <div class="dashboard-section" id="section-map" style="display:none">
-            <h2 style="margin-bottom: 16px; color: #2c3e50;">Карта спеціалістів</h2>
-            <div id="map-container-section" style="height: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #2c3e50;">Анкети спеціалістів</h2>
+                <div id="profiles-filters" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+            </div>
+            <div id="profiles-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+                <p style="color: #7f8c8d;">Завантаження...</p>
+            </div>
         </div>
 
         <div class="dashboard-section" id="section-settings" style="display:none">
@@ -256,7 +267,7 @@
             if (target) target.style.display = 'block';
             if (window.HealerSidebar) HealerSidebar.setActiveSection(sectionName);
             if (sectionName === 'users' && typeof loadUsers === 'function') loadUsers();
-            if (sectionName === 'map' && typeof window.initSectionMap === 'function') window.initSectionMap();
+            if (sectionName === 'map') { if (typeof loadProfiles === 'function') loadProfiles(); }
         };
     </script>
 
@@ -490,53 +501,64 @@
 
         async function loadUsers() {
             try {
-                var data = await HealerAPI.get('/api/admin/users');
-                allUsers = Array.isArray(data) ? data : (data.items || data.users || []);
+                var data = await HealerAPI.get('/api/specialists');
+                allUsers = Array.isArray(data) ? data : (data.items || []);
+
+                var types = {};
+                allUsers.forEach(function(s) {
+                    if (s.service_type && !types[s.service_type]) {
+                        types[s.service_type] = true;
+                    }
+                });
+                var select = document.getElementById('users-role-filter');
+                select.innerHTML = '<option value="all">Всі спеціальності</option>';
+                Object.keys(types).sort().forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ');
+                    select.appendChild(opt);
+                });
+
                 filterUsers();
             } catch (e) {
                 var tbody = document.getElementById('users-tbody');
-                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#e74c3c;">Помилка завантаження користувачів</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#e74c3c;">Помилка завантаження</td></tr>';
             }
         }
 
-        function searchUsers() { filterUsers(); }
-        function filterUsers() {
-            var query = (document.getElementById('users-search') && document.getElementById('users-search').value) ? document.getElementById('users-search').value.trim().toLowerCase() : '';
-            var roleFilter = (document.getElementById('users-role-filter') && document.getElementById('users-role-filter').value) ? document.getElementById('users-role-filter').value : 'all';
-            var list = allUsers.filter(function(u) {
-                var matchRole = roleFilter === 'all' || (u.role === roleFilter);
-                var name = (u.name || u.full_name || '').toLowerCase();
-                var email = (u.email || '').toLowerCase();
-                var matchSearch = !query || name.indexOf(query) !== -1 || email.indexOf(query) !== -1;
-                return matchRole && matchSearch;
+        window.filterUsers = function() {
+            var query = (document.getElementById('users-search') && document.getElementById('users-search').value) ? document.getElementById('users-search').value.toLowerCase().trim() : '';
+            var typeFilter = (document.getElementById('users-role-filter') && document.getElementById('users-role-filter').value) ? document.getElementById('users-role-filter').value : 'all';
+            var filtered = allUsers.filter(function(s) {
+                var matchSearch = !query || (s.name || '').toLowerCase().includes(query) || (s.specialty || '').toLowerCase().includes(query) || (s.service_type || '').toLowerCase().includes(query);
+                var matchType = typeFilter === 'all' || s.service_type === typeFilter;
+                return matchSearch && matchType;
             });
-            renderUsers(list);
-        }
+            renderUsers(filtered);
+        };
+        window.searchUsers = window.filterUsers;
 
-        function renderUsers(users) {
+        function renderUsers(list) {
             var tbody = document.getElementById('users-tbody');
             if (!tbody) return;
-            if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:40px; text-align:center; color:#7f8c8d;">Користувачів не знайдено</td></tr>';
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:40px; text-align:center; color:#7f8c8d;">Спеціалістів не знайдено</td></tr>';
                 return;
             }
-            tbody.innerHTML = users.map(function(u) {
-                var roleBadge = '';
-                if (u.role === 'admin') roleBadge = '<span style="background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:10px; font-size:12px;">Admin</span>';
-                else if (u.role === 'practitioner') roleBadge = '<span style="background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:10px; font-size:12px;">Спеціаліст</span>';
-                else roleBadge = '<span style="background:#f5f5f5; color:#666; padding:3px 10px; border-radius:10px; font-size:12px;">User</span>';
-                var statusDot = u.is_active !== false
+            tbody.innerHTML = list.map(function(s) {
+                var typeLabel = (s.service_type || '—').charAt(0).toUpperCase() + (s.service_type || '—').slice(1).replace(/_/g, ' ');
+                var typeBadge = '<span style="background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:10px; font-size:12px;">' + typeLabel + '</span>';
+                var statusDot = s.is_active !== false
                     ? '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#4caf50; margin-right:6px;"></span>Активний'
                     : '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#e74c3c; margin-right:6px;"></span>Неактивний';
-                var date = u.created_at ? new Date(u.created_at).toLocaleDateString('uk-UA') : '—';
-                var roleSelect = '<select onchange="changeUserRole(' + u.id + ', this.value)" style="padding:4px 8px; border:1px solid #ddd; border-radius:6px; font-size:12px;">' +
-                    '<option value="user"' + (u.role === 'user' ? ' selected' : '') + '>User</option>' +
-                    '<option value="practitioner"' + (u.role === 'practitioner' ? ' selected' : '') + '>Practitioner</option>' +
-                    '<option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option>' +
-                    '</select>';
-                var nameEmail = escapeHtml(u.name || u.full_name || '') || escapeHtml(u.email || '—');
-                if (u.email) nameEmail = (escapeHtml(u.name || u.full_name || '') ? escapeHtml(u.name || u.full_name) + ' <span style="color:#888;">' + escapeHtml(u.email) + '</span>' : escapeHtml(u.email));
-                return '<tr style="border-top:1px solid #f0f0f0;"><td style="padding:12px 16px; font-size:13px;">' + (u.id || '—') + '</td><td style="padding:12px 16px;">' + nameEmail + '</td><td style="padding:12px 16px;">' + roleBadge + '</td><td style="padding:12px 16px; font-size:13px;">' + statusDot + '</td><td style="padding:12px 16px; font-size:13px;">' + date + '</td><td style="padding:12px 16px; text-align:center;">' + roleSelect + '</td></tr>';
+                return '<tr style="border-top: 1px solid #f0f0f0;">' +
+                    '<td style="padding:12px 16px; color:#95a5a6; font-size:13px;">#' + (s.id || '—') + '</td>' +
+                    '<td style="padding:12px 16px;"><div style="font-weight:600; color:#2c3e50;">' + escapeHtml(s.name || '—') + '</div><div style="font-size:12px; color:#7f8c8d;">' + escapeHtml(s.specialty || '') + '</div></td>' +
+                    '<td style="padding:12px 16px;">' + typeBadge + '</td>' +
+                    '<td style="padding:12px 16px; font-size:13px;">' + statusDot + '</td>' +
+                    '<td style="padding:12px 16px; color:#7f8c8d; font-size:13px;">' + (s.hourly_rate ? s.hourly_rate + ' грн/год' : '—') + '</td>' +
+                    '<td style="padding:12px 16px; text-align:center; font-size:13px;">' + (s.is_verified ? '✅' : '⏳') + '</td>' +
+                    '</tr>';
             }).join('');
         }
 
@@ -549,10 +571,84 @@
             }
         }
 
+        var allProfiles = [];
+        var currentProfileFilter = 'all';
+
+        async function loadProfiles() {
+            try {
+                var data = await HealerAPI.get('/api/specialists');
+                allProfiles = Array.isArray(data) ? data : (data.items || []);
+
+                var types = {};
+                allProfiles.forEach(function(s) {
+                    if (s.service_type) types[s.service_type] = (types[s.service_type] || 0) + 1;
+                });
+
+                var filtersDiv = document.getElementById('profiles-filters');
+                if (!filtersDiv) return;
+                var html = '<button onclick="filterProfiles(\'all\')" class="profile-filter" id="pf-all" style="padding:8px 16px; border-radius:20px; border:1px solid #4a7c59; background:#4a7c59; color:white; cursor:pointer; font-size:13px;">Всі (' + allProfiles.length + ')</button>';
+                Object.keys(types).sort().forEach(function(t) {
+                    var label = t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ');
+                    var safeT = t.replace(/'/g, "\\'");
+                    html += '<button onclick="filterProfiles(\'' + safeT + '\')" class="profile-filter" id="pf-' + t.replace(/[^a-z0-9_-]/gi, '_') + '" style="padding:8px 16px; border-radius:20px; border:1px solid #ddd; background:white; color:#666; cursor:pointer; font-size:13px;">' + label + ' (' + types[t] + ')</button>';
+                });
+                filtersDiv.innerHTML = html;
+
+                renderProfiles();
+            } catch (e) {
+                var grid = document.getElementById('profiles-grid');
+                if (grid) grid.innerHTML = '<p style="color:#e74c3c;">Помилка завантаження</p>';
+            }
+        }
+
+        function renderProfiles() {
+            var filtered = currentProfileFilter === 'all' ? allProfiles : allProfiles.filter(function(s) { return s.service_type === currentProfileFilter; });
+            var grid = document.getElementById('profiles-grid');
+            if (!grid) return;
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;"><div style="font-size:48px; margin-bottom:12px;">🔍</div><p>Немає спеціалістів за обраним фільтром</p></div>';
+                return;
+            }
+            grid.innerHTML = filtered.map(function(s) {
+                var typeLabel = (s.service_type || '—').charAt(0).toUpperCase() + (s.service_type || '—').slice(1).replace(/_/g, ' ');
+                var contact = '';
+                if (s.telegram_id) contact = '<a href="https://t.me/' + s.telegram_id + '" target="_blank" style="color:#4a7c59; text-decoration:none; font-size:13px;">📱 Telegram</a>';
+                return '<div style="background:white; border-radius:12px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">' +
+                    '<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">' +
+                    '<div><h3 style="margin:0 0 4px 0; color:#2c3e50;">' + escapeHtml(s.name || '—') + '</h3>' +
+                    '<span style="background:#e3f2fd; color:#1565c0; padding:3px 10px; border-radius:10px; font-size:12px;">' + typeLabel + '</span></div>' +
+                    '<div style="text-align:right;">' + (s.is_verified ? '<span style="color:#4caf50; font-size:13px;">✅ Верифікований</span>' : '<span style="color:#e67e22; font-size:13px;">⏳ Очікує</span>') + '</div>' +
+                    '</div>' +
+                    '<p style="margin:0 0 8px 0; color:#5a6c7d; font-size:14px;">' + escapeHtml(s.specialty || '—') + '</p>' +
+                    (s.bio ? '<p style="margin:0 0 12px 0; color:#7f8c8d; font-size:13px; background:#f8f9fa; padding:10px; border-radius:8px;">' + (s.bio || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' : '') +
+                    '<div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid #f0f0f0;">' +
+                    '<span style="font-weight:600; color:#4a7c59;">' + (s.hourly_rate ? s.hourly_rate + ' грн/год' : '—') + '</span>' +
+                    contact +
+                    '</div></div>';
+            }).join('');
+        }
+
+        window.filterProfiles = function(type) {
+            currentProfileFilter = type;
+            var buttons = document.querySelectorAll('.profile-filter');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].style.background = 'white';
+                buttons[i].style.color = '#666';
+                buttons[i].style.borderColor = '#ddd';
+            }
+            var activeId = 'pf-all';
+            if (type !== 'all') activeId = 'pf-' + type.replace(/[^a-z0-9_-]/gi, '_');
+            var active = document.getElementById(activeId);
+            if (active) {
+                active.style.background = '#4a7c59';
+                active.style.color = 'white';
+                active.style.borderColor = '#4a7c59';
+            }
+            renderProfiles();
+        };
+
         window.reviewApp = reviewApp;
         window.filterApplications = filterApplications;
-        window.searchUsers = searchUsers;
-        window.filterUsers = filterUsers;
         window.changeUserRole = changeUserRole;
 
         window.addEventListener('DOMContentLoaded', function() {
