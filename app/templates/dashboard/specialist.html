@@ -344,10 +344,9 @@
     </div>
 
     <!-- Create/Edit Post Modal -->
-    <div class="modal-overlay" id="post-modal">
+    <div class="modal-overlay" id="post-modal" data-edit-id="">
         <div class="modal">
             <h2 id="post-modal-title">Новий пост</h2>
-            <input type="hidden" id="edit-post-id">
             <div class="form-group">
                 <label>Заголовок *</label>
                 <input type="text" id="post-title" placeholder="Заголовок вашого посту">
@@ -366,8 +365,8 @@
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closePostModal()">Скасувати</button>
-                <button class="btn btn-primary" onclick="savePost('draft')">💾 Зберегти чернетку</button>
-                <button class="btn btn-success" onclick="savePost('publish')">🚀 Опублікувати</button>
+                <button class="btn btn-primary" onclick="savePost(false)">💾 Зберегти чернетку</button>
+                <button class="btn btn-success" onclick="savePost(true)">🚀 Опублікувати</button>
             </div>
         </div>
     </div>
@@ -478,7 +477,8 @@
 
         function openCreatePost() {
             document.getElementById('post-modal-title').textContent = 'Новий пост';
-            document.getElementById('edit-post-id').value = '';
+            var modal = document.getElementById('post-modal');
+            if (modal) modal.dataset.editId = '';
             document.getElementById('post-title').value = '';
             document.getElementById('post-content').value = '';
             document.getElementById('post-excerpt').value = '';
@@ -490,41 +490,54 @@
             document.getElementById('post-modal').classList.remove('active');
         }
 
-        async function savePost(action) {
-            const id = document.getElementById('edit-post-id').value;
-            const title = document.getElementById('post-title').value;
-            const content = document.getElementById('post-content').value;
-            const excerpt = document.getElementById('post-excerpt').value;
-            const tags = document.getElementById('post-tags').value;
-            if (!title || !content) { alert("Заповніть заголовок і контент"); return; }
+        async function savePost(publishNow) {
+            var title = document.getElementById('post-title').value.trim();
+            var content = document.getElementById('post-content').value.trim();
 
-            var body = { title, content, excerpt: excerpt || title, tags: tags ? tags.split(',').map(t=>t.trim()) : [] };
-            var post = null;
+            if (!title || !content) {
+                alert('Заповніть заголовок і контент');
+                return;
+            }
+
+            var tagsRaw = (document.getElementById('post-tags') || {}).value || '';
+            var tagNames = tagsRaw ? tagsRaw.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
+            var body = {
+                title: title,
+                content: content,
+                meta_description: (document.getElementById('post-excerpt') || {}).value || '',
+                tag_names: tagNames
+            };
+
             try {
-                if (id) {
-                    post = await HealerAPI.put('/api/blog/posts/' + id, body);
+                var modal = document.getElementById('post-modal');
+                var editId = (modal && modal.dataset.editId) ? modal.dataset.editId : '';
+                var post;
+
+                if (editId) {
+                    post = await HealerAPI.put('/api/blog/posts/' + editId, body);
                 } else {
                     post = await HealerAPI.post('/api/blog/posts', body);
                 }
-            } catch (e) {}
-            if (post) {
-                if (action === 'publish' && post.id) {
+
+                if (publishNow && post && post.id) {
                     await HealerAPI.post('/api/blog/posts/' + post.id + '/publish', {});
                 }
+
                 closePostModal();
                 loadBlog();
-            } else {
-                alert('Помилка збереження');
+            } catch (e) {
+                alert('Помилка збереження: ' + (e.message || e));
             }
         }
 
         async function editPost(id) {
             var posts = await HealerAPI.get('/api/blog/posts');
             if (!posts) return;
-            const post = posts.find(p => p.id === id);
+            var post = posts.find(function(p) { return p.id === id; });
             if (!post) return;
             document.getElementById('post-modal-title').textContent = 'Редагувати пост';
-            document.getElementById('edit-post-id').value = post.id;
+            var modal = document.getElementById('post-modal');
+            if (modal) modal.dataset.editId = String(post.id);
             document.getElementById('post-title').value = post.title;
             document.getElementById('post-content').value = post.content || '';
             document.getElementById('post-excerpt').value = post.excerpt || '';
