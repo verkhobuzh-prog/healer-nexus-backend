@@ -10,6 +10,6 @@ class Message(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     role = Column(String)  # 'user' або 'assistant'
     content = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="messages")
