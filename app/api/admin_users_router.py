@@ -31,6 +31,7 @@ from app.schemas.specialist_application import (
     ApplicationReview,
     RoleUpdate,
 )
+from app.schemas.auth import AdminResetPasswordRequest
 from app.core.security import hash_password
 from app.config import settings
 from app.services.promoterx_service import PromoterXService
@@ -211,20 +212,17 @@ async def delete_user(
 @router.put("/users/{user_id}/password")
 async def reset_user_password(
     user_id: int,
-    body: dict,
+    body: AdminResetPasswordRequest,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    """Reset user password. Body: {"new_password": "string"} (min 6, max 128 chars)."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    new_password = body.get("password")
-    if not new_password or len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-
-    user.password_hash = hash_password(new_password)
+    user.password_hash = hash_password(body.new_password)
     await db.commit()
 
     return {"message": "Password updated", "user_id": user_id}

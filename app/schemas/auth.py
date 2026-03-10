@@ -19,6 +19,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds until access token expires
+    user: UserBrief
+
+
 class UserBrief(BaseModel):
     id: int
     email: Optional[str] = None
@@ -26,15 +34,8 @@ class UserBrief(BaseModel):
     role: str
     specialist_id: Optional[int] = None
     practitioner_id: Optional[int] = None
+
     model_config = {"from_attributes": True}
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    user: UserBrief
 
 
 class RefreshRequest(BaseModel):
@@ -44,6 +45,11 @@ class RefreshRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class AdminResetPasswordRequest(BaseModel):
+    """Body for PUT /api/admin/users/{id}/password. Accepts new_password (min 6 chars)."""
+    new_password: str = Field(..., min_length=6, max_length=128)
 
 
 class MessageResponse(BaseModel):
