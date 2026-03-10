@@ -1,6 +1,7 @@
 """Auth service: register, login, refresh, logout, change password."""
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -20,7 +21,13 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
-from app.services.blog_slug import generate_slug
+
+
+def _generate_unique_slug(name: str, specialist_id: int) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", name.lower()).strip("-")
+    if not slug:
+        slug = "specialist"
+    return f"{slug}-{specialist_id}"
 
 
 class AuthService:
@@ -76,12 +83,15 @@ class AuthService:
             self.session.add(specialist)
             await self.session.flush()
             specialist_id = specialist.id
-            base_slug = generate_slug(name)
             profile = PractitionerProfile(
+                project_id=settings.PROJECT_ID or "healer_nexus",
                 specialist_id=specialist.id,
-                project_id=settings.PROJECT_ID,
+                slug=_generate_unique_slug(name, specialist.id),
+                empathy_ratio=0.8,
+                style="warm",
+                preferences={},
                 is_active=True,
-                slug=f"{base_slug}-{specialist_id}" if base_slug else f"practitioner-{specialist_id}",
+                creator_signature=name,
             )
             self.session.add(profile)
             await self.session.flush()

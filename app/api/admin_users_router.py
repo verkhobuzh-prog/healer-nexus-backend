@@ -4,10 +4,11 @@ Only accessible by admin role.
 """
 from __future__ import annotations
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_admin
 from app.database.connection import get_db
@@ -15,6 +16,16 @@ from app.models.user import User
 from app.models.specialist import Specialist
 from app.models.practitioner_profile import PractitionerProfile
 from app.models.specialist_application import SpecialistApplication, ApplicationStatus
+from app.models.refresh_token import RefreshToken
+from app.models.message import Message
+from app.models.booking import Booking
+from app.models.specialist_recommendation import SpecialistRecommendation
+from app.models.blog_post import BlogPost
+from app.models.blog_post_view import BlogPostView
+from app.models.blog_analytics_daily import BlogAnalyticsDaily
+from app.models.blog_post_tag import BlogPostTag
+from app.models.conversation import Conversation
+from app.models.specialist_content import SpecialistContent
 from app.schemas.specialist_application import (
     ApplicationResponse,
     ApplicationReview,
@@ -26,6 +37,15 @@ from app.services.promoterx_service import PromoterXService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+
+
+def _generate_unique_slug(name: str, specialist_id: int) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", name.lower()).strip("-")
+    if not slug:
+        slug = "specialist"
+    return f"{slug}-{specialist_id}"
+
+
 # --- Users ---
 @router.get("/users")
 async def list_users(
@@ -97,12 +117,92 @@ async def delete_user(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete user account. Admin only."""
+    """Delete user account. Admin only. Manually deletes all FK-related rows (no CASCADE)."""
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
     if user.role == "admin":
         raise HTTPException(400, "Cannot delete admin account")
+
+    # Resolve specialist(s) and practitioner profile(s) for this user
+    r_spec = await db.execute(select(Specialist).where(Specialist.user_id == user_id))
+    specialist = r_spec.scalar_one_or_none()
+    specialist_ids = []
+    practitioner_ids = []
+    if specialist:
+        specialist_ids.append(specialist.id)
+        r_prof = await db.execute(
+            select(PractitionerProfile).where(
+                PractitionerProfile.specialist_id == specialist.id
+            )
+        )
+        for row in r_prof.scalars().all():
+            practitioner_ids.append(row.id)
+
+    # 1. Blog: views, analytics, tags, then posts (FK to practitioner_profiles)
+    if practitioner_ids:
+        r_posts = await db.execute(
+            select(BlogPost.id).where(BlogPost.practitioner_id.in_(practitioner_ids))
+        )
+        post_ids = [row[0] for row in r_posts.fetchall()]
+        if post_ids:
+            await db.execute(delete(BlogPostView).where(BlogPostView.post_id.in_(post_ids)))
+            await db.execute(
+                delete(BlogAnalyticsDaily).where(BlogAnalyticsDaily.post_id.in_(post_ids))
+            )
+            await db.execute(
+                delete(BlogPostTag).where(BlogPostTag.post_id.in_(post_ids))
+            )
+        await db.execute(
+            delete(BlogPost).where(BlogPost.practitioner_id.in_(practitioner_ids))
+        )
+
+    # 2. Bookings (user as client or specialist)
+    await db.execute(delete(Booking).where(Booking.user_id == user_id))
+    if specialist_ids:
+        await db.execute(
+            delete(Booking).where(Booking.specialist_id.in_(specialist_ids))
+        )
+
+    # 3. Specialist recommendations
+    await db.execute(
+        delete(SpecialistRecommendation).where(SpecialistRecommendation.user_id == user_id)
+    )
+    if specialist_ids:
+        await db.execute(
+            delete(SpecialistRecommendation).where(
+                SpecialistRecommendation.specialist_id.in_(specialist_ids)
+            )
+        )
+
+    # 4. Practitioner profiles (FK specialists)
+    if specialist_ids:
+        await db.execute(
+            delete(PractitionerProfile).where(
+                PractitionerProfile.specialist_id.in_(specialist_ids)
+            )
+        )
+
+    # 5. Specialist content (FK specialists)
+    if specialist_ids:
+        await db.execute(
+            delete(SpecialistContent).where(
+                SpecialistContent.specialist_id.in_(specialist_ids)
+            )
+        )
+
+    # 6. Specialist (FK users)
+    await db.execute(delete(Specialist).where(Specialist.user_id == user_id))
+
+    # 7. Refresh tokens, applications, messages, conversations
+    await db.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+    await db.execute(
+        delete(SpecialistApplication).where(SpecialistApplication.user_id == user_id)
+    )
+    await db.execute(delete(Message).where(Message.user_id == user_id))
+    await db.execute(delete(Conversation).where(Conversation.user_id == user_id))
+
+    # 8. User
     await db.delete(user)
     await db.commit()
     return {"message": f"User {user_id} deleted"}
@@ -178,15 +278,17 @@ async def review_application(
         )
         db.add(specialist)
         await db.flush()
-        slug = application.name.lower().replace(" ", "-").replace("'", "")
         profile = PractitionerProfile(
             project_id="healer_nexus",
             specialist_id=specialist.id,
-            slug=slug,
-            unique_story=application.motivation or application.bio[:200],
+            slug=_generate_unique_slug(application.name, specialist.id),
             empathy_ratio=0.8,
             style="warm",
-            social_links={"telegram": application.contact_telegram} if application.contact_telegram else {},
+            preferences={},
+            is_active=True,
+            creator_signature=application.name,
+            unique_story=(application.motivation or (application.bio[:200] if application.bio else None)) or None,
+            social_links={"telegram": application.contact_telegram} if application.contact_telegram else None,
         )
         db.add(profile)
         await db.flush()
