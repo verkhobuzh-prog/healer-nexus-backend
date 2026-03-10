@@ -104,6 +104,34 @@ async def delete_user(
     await db.delete(user)
     await db.commit()
     return {"message": f"User {user_id} deleted"}
+
+
+@router.put("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    from passlib.context import CryptContext
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_password = body.get("password")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    user.hashed_password = pwd_context.hash(new_password)
+    await db.commit()
+
+    return {"message": "Password updated", "user_id": user_id}
+
+
 # --- Specialist Applications ---
 @router.get("/applications", response_model=list[ApplicationResponse])
 async def list_applications(
