@@ -61,10 +61,16 @@ app = FastAPI(
 )
 
 # --- CORS ---
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:8000",
-).split(",")
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:8000",
+    ).split(",")
+    if o.strip() and o.strip() != "*"
+]
+if not ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS = ["http://localhost:8000"]
 
 app.add_middleware(
     CORSMiddleware,

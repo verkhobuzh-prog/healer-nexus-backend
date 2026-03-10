@@ -102,14 +102,13 @@ class BlogAnalyticsService:
         await self.session.commit()
 
     async def aggregate_daily(self, target_date: date) -> None:
-        # Subquery / expression for "viewed on target_date" (SQLite-friendly)
-        date_str = target_date.isoformat()
+        # Compare DATE to date object (PostgreSQL strict: no date = varchar)
         # Get post_ids that have views on target_date
         q = (
             select(BlogPostView.post_id)
             .where(
                 BlogPostView.project_id == self.project_id,
-                func.date(BlogPostView.viewed_at) == date_str,
+                func.date(BlogPostView.viewed_at) == target_date,
             )
             .distinct()
         )
@@ -145,7 +144,7 @@ class BlogAnalyticsService:
             ).where(
                 BlogPostView.project_id == self.project_id,
                 BlogPostView.post_id == post_id,
-                func.date(BlogPostView.viewed_at) == date_str,
+                func.date(BlogPostView.viewed_at) == target_date,
             )
             agg = await self.session.execute(base)
             row = agg.one()
@@ -206,7 +205,6 @@ class BlogAnalyticsService:
             return None
 
         today = date.today()
-        today_str = today.isoformat()
         start_7d = today - timedelta(days=7)
         start_30d = today - timedelta(days=30)
 

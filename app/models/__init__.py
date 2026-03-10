@@ -14,6 +14,7 @@ from app.models.blog_post_view import BlogPostView
 from app.models.blog_analytics_daily import BlogAnalyticsDaily
 from app.models.booking import Booking, BookingStatus
 from app.models.specialist_recommendation import SpecialistRecommendation
+from app.models.specialist_application import SpecialistApplication, ApplicationStatus
 from app.models.agent_audit_log import AgentAuditLog
 
 __all__ = [
@@ -36,5 +37,7 @@ __all__ = [
     "Booking",
     "BookingStatus",
     "SpecialistRecommendation",
+    "SpecialistApplication",
+    "ApplicationStatus",
     "AgentAuditLog",
 ]

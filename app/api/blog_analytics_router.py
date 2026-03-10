@@ -188,5 +188,7 @@ async def trigger_aggregate(
 ):
     """Trigger daily aggregation for a given date (default: yesterday)."""
     target = date_param or (date.today() - timedelta(days=1))
+    if isinstance(target, str):
+        target = date.fromisoformat(target)
     await blog_analytics_aggregator.aggregate_now(target_date=target)
     return {"status": "ok", "date": target.isoformat()}

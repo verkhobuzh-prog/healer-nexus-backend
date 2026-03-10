@@ -3,6 +3,7 @@ Blog CRUD and slug generation. Async SQLAlchemy 2.0, multi-tenant by project_id.
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Optional
@@ -16,6 +17,8 @@ from app.models.blog_post_tag import BlogPostTag
 from app.models.blog_tag import BlogTag
 from app.services.blog_slug import generate_slug
 from app.services.blog_taxonomy_service import BlogTaxonomyService
+
+logger = logging.getLogger(__name__)
 
 
 async def ensure_unique_slug(
@@ -350,8 +353,8 @@ class BlogService:
         try:
             from app.services.blog_publish_notifier import notify_post_published
             await notify_post_published(self.session, post)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("notify_post_published failed: %s", e)
         return post
 
     async def unpublish_post(self, post_id: int, practitioner_id: int) -> Optional[BlogPost]:
@@ -432,9 +435,10 @@ class BlogService:
                 try:
                     from app.services.blog_publish_notifier import notify_post_published
                     await notify_post_published(self.session, post)
-                except Exception:
-                    pass
-            except Exception:
+                except Exception as e:
+                    logger.warning("notify_post_published failed: %s", e)
+            except Exception as e:
+                logger.error("publish_scheduled_posts failed: %s", e, exc_info=True)
                 await self.session.rollback()
         return count
 

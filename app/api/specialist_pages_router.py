@@ -1,5 +1,6 @@
 """Public specialist profile pages (HTML, no auth)."""
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -14,6 +15,7 @@ from app.models.practitioner_profile import PractitionerProfile
 from app.models.blog_post import BlogPost
 from app.services.social_links import build_all_social_urls
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Specialist Pages"])
 templates_dir = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
@@ -31,8 +33,8 @@ async def _resolve_specialist(
         specialist = await db.get(Specialist, sid)
         if specialist:
             return specialist
-    except ValueError:
-        pass
+    except ValueError as e:
+        logger.debug("Invalid slug/ID: %s", e)
     # 2. Try by practitioner slug
     r = await db.execute(
         select(PractitionerProfile).where(PractitionerProfile.slug == slug_clean)

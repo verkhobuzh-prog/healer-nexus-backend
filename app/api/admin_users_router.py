@@ -3,6 +3,7 @@ Admin API: manage users, roles, specialist applications.
 Only accessible by admin role.
 """
 from __future__ import annotations
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,6 +24,7 @@ from app.core.security import hash_password
 from app.config import settings
 from app.services.promoterx_service import PromoterXService
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 # --- Users ---
 @router.get("/users")
@@ -113,10 +115,6 @@ async def reset_user_password(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -126,7 +124,7 @@ async def reset_user_password(
     if not new_password or len(new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    user.hashed_password = pwd_context.hash(new_password)
+    user.password_hash = hash_password(new_password)
     await db.commit()
 
     return {"message": "Password updated", "user_id": user_id}

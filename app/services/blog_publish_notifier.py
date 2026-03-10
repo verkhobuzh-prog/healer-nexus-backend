@@ -57,8 +57,8 @@ async def notify_post_published(
                 )
                 spec = spec_r.scalar_one_or_none()
                 author_name = getattr(spec, "name", None) if spec else None
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("blog_publish_notifier failed: %s", e)
 
         tag_names = [t.name for t in post.tags] if getattr(post, "tags", None) else []
         excerpt = (post.content or "")[:300]

@@ -26,13 +26,20 @@ if _cloudsql_instance and "sqlite" not in _database_url.lower():
     _connect_args = {"host": socket_path}
     print(f"Cloud SQL socket: {socket_path}")
 
-engine = create_async_engine(
-    _database_url,
-    echo=False,
-    future=True,
-    connect_args=_connect_args,
-    pool_pre_ping=True,
-)
+engine_kwargs = {
+    "echo": False,
+    "future": True,
+    "connect_args": _connect_args,
+    "pool_pre_ping": True,
+}
+if "postgresql" in _database_url:
+    engine_kwargs.update({
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_recycle": 3600,
+    })
+
+engine = create_async_engine(_database_url, **engine_kwargs)
 
 async_session_maker = async_sessionmaker(
     engine,
@@ -60,6 +67,10 @@ async def init_db():
     from app.models.blog_post_tag import BlogPostTag  # noqa: F401
     from app.models.blog_post_view import BlogPostView  # noqa: F401
     from app.models.blog_analytics_daily import BlogAnalyticsDaily  # noqa: F401
+    try:
+        from app.models.agent_audit_log import AgentAuditLog  # noqa: F401
+    except ImportError:
+        pass
 
     try:
         async with engine.begin() as conn:

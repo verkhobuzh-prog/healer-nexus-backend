@@ -4,6 +4,8 @@ Bridges between Gemini function calling and actual services.
 """
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,8 @@ from app.models.practitioner_profile import PractitionerProfile
 from app.services.specialist_matcher import SpecialistMatcher
 from app.services.booking_service import BookingService
 from app.services.recommendation_service import RecommendationService
+
+logger = logging.getLogger(__name__)
 
 
 class ChatToolExecutor:
@@ -67,8 +71,8 @@ class ChatToolExecutor:
                         source="chat",
                         conversation_id=self.conversation_id,
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("record_recommendation/details failed: %s", e)
         return {
             "specialists": results,
             "message": f"Знайдено {len(results)} спеціалістів",
@@ -106,8 +110,8 @@ class ChatToolExecutor:
         try:
             rec_svc = RecommendationService(self.session, self.project_id)
             await rec_svc.record_details_viewed(specialist_id, self.user_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("record_recommendation/details failed: %s", e)
         profile_r = await self.session.execute(
             select(PractitionerProfile).where(
                 PractitionerProfile.specialist_id == specialist_id,
