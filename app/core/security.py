@@ -56,13 +56,15 @@ def create_access_token(
     practitioner_id: Optional[int] = None,
     project_id: str = "healer_nexus",
 ) -> str:
-    """Create JWT access token. Admin: 8 hours; others: 30 min default."""
+    """Create JWT access token. TTL by role: admin 8h, practitioner 4h, user 2h; unknown/default 2h."""
     if role == "admin":
-        expire_delta = timedelta(minutes=480)  # 8 hours for admin
+        expire_delta = timedelta(minutes=480)   # 8 hours
+    elif role == "practitioner":
+        expire_delta = timedelta(minutes=240)  # 4 hours
+    elif role == "user":
+        expire_delta = timedelta(minutes=120)  # 2 hours
     else:
-        expire_delta = timedelta(
-            minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES or 30
-        )
+        expire_delta = timedelta(minutes=120)  # 2 hours default (unknown role)
     expire = datetime.now(timezone.utc) + expire_delta
     payload = {
         "sub": str(user_id),
