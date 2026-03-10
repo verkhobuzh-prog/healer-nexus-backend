@@ -52,5 +52,13 @@ class AdminResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
+class AdminCreateUserRequest(BaseModel):
+    """Body for POST /api/admin/users/create. Admin creates a client/user."""
+    email: str = Field(..., min_length=3, max_length=255)
+    name: str = Field(..., min_length=1, max_length=255)
+    password: str = Field(..., min_length=6, max_length=128)
+    role: str = Field(default="user", pattern="^(user|practitioner|admin)$")
+
+
 class MessageResponse(BaseModel):
     message: str

@@ -31,7 +31,7 @@ from app.schemas.specialist_application import (
     ApplicationReview,
     RoleUpdate,
 )
-from app.schemas.auth import AdminResetPasswordRequest
+from app.schemas.auth import AdminResetPasswordRequest, AdminCreateUserRequest
 from app.core.security import hash_password
 from app.config import settings
 from app.services.promoterx_service import PromoterXService
@@ -48,6 +48,30 @@ def _generate_unique_slug(name: str, specialist_id: int) -> str:
 
 
 # --- Users ---
+@router.post("/users/create", status_code=201)
+async def admin_create_user(
+    body: AdminCreateUserRequest,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a user (client). Body: email, name, password, role (default user). Admin only."""
+    r = await db.execute(select(User).where(User.email == body.email))
+    if r.scalar_one_or_none():
+        raise HTTPException(400, "Email already registered")
+    user = User(
+        email=body.email,
+        username=body.name,
+        password_hash=hash_password(body.password),
+        role=body.role,
+        is_active=True,
+        telegram_id=None,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return {"message": "User created", "user_id": user.id, "email": user.email}
+
+
 @router.get("/users")
 async def list_users(
     skip: int = Query(0, ge=0),
@@ -98,8 +122,10 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Update user (e.g. role). Body: { \"role\": \"user\" | \"practitioner\" | \"admin\" }. Admin only."""
+    if user_id == admin.id:
+        raise HTTPException(400, "Cannot change your own role")
     await _apply_role_update(user_id, body.role, db)
-    return {"message": f"User {user_id} role updated to {body.role}", "user_id": user_id, "role": body.role}
+    return {"message": "Role updated", "user_id": user_id, "new_role": body.role}
 
 
 @router.put("/users/{user_id}/role")
@@ -109,9 +135,11 @@ async def update_user_role(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Change user role. Admin only."""
+    """Change user role. Body: {\"role\": \"admin\" | \"practitioner\" | \"user\"}. Admin only; cannot change own role."""
+    if user_id == admin.id:
+        raise HTTPException(400, "Cannot change your own role")
     await _apply_role_update(user_id, body.role, db)
-    return {"message": f"User {user_id} role updated to {body.role}", "user_id": user_id, "role": body.role}
+    return {"message": "Role updated", "user_id": user_id, "new_role": body.role}
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
