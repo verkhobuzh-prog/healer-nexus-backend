@@ -186,9 +186,19 @@ async def login_redirect():
     return RedirectResponse(url="/dashboard/login")
 
 
+@app.get("/register", include_in_schema=False)
+async def register_page():
+    return FileResponse("app/templates/dashboard/login.html")
+
+
 @app.get("/dashboard/login", include_in_schema=False)
 async def login_page(request: Request):
     return _templates.TemplateResponse("dashboard/login.html", {"request": request})
+
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard_page():
+    return FileResponse("app/templates/dashboard/specialist.html")
 
 
 @app.get("/admin-dashboard", include_in_schema=False)

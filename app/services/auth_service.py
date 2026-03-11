@@ -254,7 +254,7 @@ class AuthService:
         r = await self.session.execute(
             select(Specialist).where(Specialist.user_id == user.id)
         )
-        specialist = r.scalar_one_or_none()
+        specialist = r.scalars().first()
         if not specialist:
             return None, None
         r2 = await self.session.execute(
@@ -263,6 +263,6 @@ class AuthService:
                 PractitionerProfile.project_id == project_id,
             )
         )
-        profile = r2.scalar_one_or_none()
+        profile = r2.scalars().first()
         practitioner_id = profile.id if profile else None
         return specialist.id, practitioner_id

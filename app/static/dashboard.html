@@ -167,11 +167,9 @@
         </div>
 
         <div class="dashboard-section" id="section-clients" style="display:none">
-            <h2 style="margin-bottom: 16px; color: #2c3e50;">Клієнти</h2>
-            <div style="background:white; border-radius:12px; padding:40px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                <div style="font-size:48px; margin-bottom:16px;">🙋</div>
-                <h3 style="color:#2c3e50; margin-bottom:8px;">Поки немає зареєстрованих клієнтів</h3>
-                <p style="color:#7f8c8d; max-width:400px; margin:0 auto;">Коли користувачі почнуть реєструватися для пошуку спеціалістів, вони з'являться тут.</p>
+            <h2 style="margin-bottom: 16px; color: #2c3e50;">Клієнти / Користувачі</h2>
+            <div id="clients-list" style="background:white; border-radius:12px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <p style="color:#7f8c8d; text-align:center;">Завантаження...</p>
             </div>
         </div>
 
@@ -232,8 +230,12 @@
             var target = document.getElementById('section-' + sectionName);
             if (target) target.style.display = 'block';
             if (window.HealerSidebar) HealerSidebar.setActiveSection(sectionName);
-            if (sectionName === 'users' && typeof loadUsers === 'function') loadUsers();
-            if (sectionName === 'map') { if (typeof loadProfiles === 'function') loadProfiles(); }
+            if (sectionName === 'applications' && typeof window.loadApplications === 'function') window.loadApplications();
+            if (sectionName === 'users' && typeof window.loadUsers === 'function') window.loadUsers();
+            if (sectionName === 'clients' && typeof window.loadClients === 'function') window.loadClients();
+            if (sectionName === 'map' && typeof window.loadProfiles === 'function') window.loadProfiles();
+            if (sectionName === 'stats' && typeof window.loadDashboardStats === 'function') window.loadDashboardStats();
+            if (sectionName === 'brain') { /* Brain Insights — за потреби додати loadBrain */ }
         };
     </script>
 
@@ -424,7 +426,9 @@
                 var op = document.getElementById('overview-pending');
                 if (op) op.textContent = pendingCount;
             } catch (e) {
-                document.getElementById('applications-list').innerHTML = '<p style="color:#e74c3c;">Помилка завантаження заявок</p>';
+                console.error('Помилка завантаження заявок:', e);
+                var el = document.getElementById('applications-list');
+                if (el) el.innerHTML = '<p style="color:#e74c3c;">Помилка завантаження заявок</p>';
             }
         }
 
@@ -476,6 +480,7 @@
                 if (result !== null && result !== undefined) { loadApplications(); if (window._dashboardLoad) window._dashboardLoad(); }
                 else { alert('Помилка обробки заявки'); }
             } catch (e) {
+                console.error('Помилка обробки заявки:', e);
                 alert('Помилка обробки заявки');
             }
         }
@@ -511,6 +516,7 @@
 
                 filterUsers();
             } catch (e) {
+                console.error('Помилка завантаження спеціалістів:', e);
                 var tbody = document.getElementById('users-tbody');
                 if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="padding:20px; text-align:center; color:#e74c3c;">Помилка завантаження</td></tr>';
             }
@@ -557,6 +563,7 @@
                 await HealerAPI.put('/api/admin/users/' + id, { role: role });
                 loadUsers();
             } catch (e) {
+                console.error('Помилка зміни ролі:', e);
                 alert('Помилка зміни ролі: ' + (e.message || e));
             }
         }
@@ -586,6 +593,7 @@
 
                 renderProfiles();
             } catch (e) {
+                console.error('Помилка завантаження анкет:', e);
                 var grid = document.getElementById('profiles-grid');
                 if (grid) grid.innerHTML = '<p style="color:#e74c3c;">Помилка завантаження</p>';
             }
@@ -637,9 +645,34 @@
             renderProfiles();
         };
 
+        async function loadClients() {
+            var el = document.getElementById('clients-list');
+            if (!el) return;
+            try {
+                var res = await HealerAPI.get('/api/admin/users');
+                var items = (res && res.items) ? res.items : [];
+                if (items.length === 0) {
+                    el.innerHTML = '<div style="text-align:center; padding:40px; color:#7f8c8d;"><div style="font-size:48px; margin-bottom:12px;">🙋</div><p>Поки немає зареєстрованих клієнтів</p></div>';
+                    return;
+                }
+                el.innerHTML = '<table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#f8f9fa;"><th style="text-align:left; padding:12px;">ID</th><th style="text-align:left; padding:12px;">Email</th><th style="text-align:left; padding:12px;">Ім\'я</th><th style="text-align:left; padding:12px;">Роль</th></tr></thead><tbody>' +
+                    items.map(function(u) {
+                        return '<tr style="border-top:1px solid #eee;"><td style="padding:12px;">' + (u.id || '') + '</td><td style="padding:12px;">' + escapeHtml(u.email || '') + '</td><td style="padding:12px;">' + escapeHtml(u.name || u.username || '') + '</td><td style="padding:12px;">' + (u.role || '') + '</td></tr>';
+                    }).join('') + '</tbody></table>';
+            } catch (e) {
+                console.error('Помилка завантаження клієнтів:', e);
+                el.innerHTML = '<p style="color:#e74c3c; text-align:center; padding:20px;">Помилка завантаження клієнтів</p>';
+            }
+        }
+
         window.reviewApp = reviewApp;
         window.filterApplications = filterApplications;
         window.changeUserRole = changeUserRole;
+        window.loadApplications = loadApplications;
+        window.loadUsers = loadUsers;
+        window.loadProfiles = loadProfiles;
+        window.loadClients = loadClients;
+        window.loadDashboardStats = loadDashboardStats;
 
         window.addEventListener('DOMContentLoaded', function() {
             loadDashboardStats();
