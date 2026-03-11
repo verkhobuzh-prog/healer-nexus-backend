@@ -683,7 +683,7 @@
             var el = document.getElementById('clients-list');
             if (!el) return;
             try {
-                var res = await HealerAPI.get('/api/admin/users');
+                var res = await HealerAPI.get('/api/admin/users?role=user');
                 var items = (res && res.items) ? res.items : [];
                 if (items.length === 0) {
                     el.innerHTML = '<div style="text-align:center; padding:40px; color:#7f8c8d;"><div style="font-size:48px; margin-bottom:12px;">🙋</div><p>Поки немає зареєстрованих клієнтів</p></div>';
@@ -692,7 +692,8 @@
                 _clientsListCache = items;
                 el.innerHTML = '<table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#f8f9fa;"><th style="text-align:left; padding:12px;">ID</th><th style="text-align:left; padding:12px;">Email</th><th style="text-align:left; padding:12px;">Ім\'я</th><th style="text-align:left; padding:12px;">Роль</th><th style="text-align:left; padding:12px;">Дії</th></tr></thead><tbody>' +
                     items.map(function(u) {
-                        return '<tr style="border-top:1px solid #eee;"><td style="padding:12px;">' + (u.id || '') + '</td><td style="padding:12px;">' + escapeHtml(u.email || '') + '</td><td style="padding:12px;">' + escapeHtml(u.name || u.username || '') + '</td><td style="padding:12px;">' + (u.role || '') + '</td><td style="padding:12px;"><button type="button" onclick="openResetPasswordModal(' + u.id + ',\'' + (u.email || '').replace(/'/g, "\\'") + '\')" style="padding:6px 12px; margin-right:6px; background:#f39c12; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">Скинути пароль</button><button type="button" onclick="openChangeEmailModal(' + u.id + ',\'' + (u.email || '').replace(/'/g, "\\'") + '\')" style="padding:6px 12px; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">Змінити email</button></td></tr>';
+                        var safeEmail = (u.email || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        return '<tr style="border-top:1px solid #eee;"><td style="padding:12px;">' + (u.id || '') + '</td><td style="padding:12px;">' + escapeHtml(u.email || '') + '</td><td style="padding:12px;">' + escapeHtml(u.name || u.username || '') + '</td><td style="padding:12px;">' + (u.role || '') + '</td><td style="padding:12px;"><button type="button" onclick="openResetPasswordModal(' + u.id + ',\'' + safeEmail + '\')" style="padding:6px 12px; margin-right:6px; background:#f39c12; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">Скинути пароль</button><button type="button" onclick="openChangeEmailModal(' + u.id + ',\'' + safeEmail + '\')" style="padding:6px 12px; margin-right:6px; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">Змінити email</button><button type="button" onclick="deleteUser(' + u.id + ')" style="padding:6px 12px; background:#e74c3c; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">🗑️ Видалити</button></td></tr>';
                     }).join('') + '</tbody></table>';
             } catch (e) {
                 console.error('Помилка завантаження клієнтів:', e);
@@ -802,6 +803,17 @@
                 var msg = (e.message || (e.body && e.body.detail) ? (typeof e.body.detail === 'string' ? e.body.detail : JSON.stringify(e.body.detail)) : 'Помилка');
                 errEl.textContent = msg;
                 errEl.style.display = 'block';
+            }
+        }
+        async function deleteUser(userId) {
+            if (!confirm('Видалити користувача?')) return;
+            try {
+                await HealerAPI.del('/api/admin/users/' + userId);
+                if (typeof showToast === 'function') showToast('Користувача видалено', 'success'); else alert('Користувача видалено');
+                loadClients();
+            } catch (e) {
+                console.error('Помилка видалення:', e);
+                alert(e.message || 'Помилка видалення');
             }
         }
 

@@ -2,22 +2,266 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Healer Nexus - Головна</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healer Nexus — AI-платформа для спеціалістів та клієнтів</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6; }
-        .nav { display: flex; justify-content: center; gap: 20px; margin-top: 30px; }
-        .link { padding: 15px 30px; background: #3498db; color: white; text-decoration: none; border-radius: 8px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
+            background: linear-gradient(160deg, #f0f4f0 0%, #e8f0f0 45%, #e0ebe8 100%);
+            color: #2d3748;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        a { color: #4a7c59; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Hero */
+        .hero {
+            min-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 48px 24px 64px;
+            background: linear-gradient(160deg, rgba(74, 124, 89, 0.06) 0%, rgba(107, 155, 189, 0.08) 100%);
+        }
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 700;
+            color: #2d3748;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+        .hero .tagline {
+            font-size: clamp(1rem, 2.5vw, 1.35rem);
+            color: #5a6c7d;
+            max-width: 560px;
+            margin-bottom: 32px;
+        }
+        .hero .cta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+        }
+        .hero .cta a {
+            display: inline-block;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .hero .cta .btn-primary {
+            background: #4a7c59;
+            color: #fff;
+            border: none;
+        }
+        .hero .cta .btn-primary:hover { background: #3d6b4a; text-decoration: none; box-shadow: 0 4px 14px rgba(74, 124, 89, 0.35); transform: translateY(-1px); }
+        .hero .cta .btn-secondary {
+            background: #fff;
+            color: #4a7c59;
+            border: 2px solid #4a7c59;
+        }
+        .hero .cta .btn-secondary:hover { background: #f0f4f0; text-decoration: none; transform: translateY(-1px); }
+
+        /* Sections */
+        section {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 64px 24px;
+        }
+        section h2 {
+            font-size: clamp(1.75rem, 4vw, 2.25rem);
+            color: #2d3748;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        /* How it works */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 32px;
+            margin-top: 24px;
+        }
+        .step {
+            text-align: center;
+            padding: 28px 20px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+        .step .icon { font-size: 2.5rem; margin-bottom: 16px; }
+        .step h3 { font-size: 1.15rem; color: #2d3748; margin-bottom: 8px; }
+        .step p { color: #5a6c7d; font-size: 0.95rem; }
+
+        /* For specialists */
+        .benefits {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+        }
+        .benefit {
+            padding: 24px;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+            border-left: 4px solid #4a7c59;
+        }
+        .benefit h3 { font-size: 1.05rem; color: #2d3748; margin-bottom: 8px; }
+        .benefit p { color: #5a6c7d; font-size: 0.9rem; }
+
+        /* Specialists grid */
+        .specialists-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 24px;
+        }
+        .specialist-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            transition: transform 0.2s;
+        }
+        .specialist-card:hover { transform: translateY(-4px); }
+        .specialist-card h3 { font-size: 1.1rem; color: #2d3748; margin-bottom: 4px; }
+        .specialist-card .spec { color: #6b9bd1; font-size: 0.9rem; margin-bottom: 8px; }
+        .specialist-card .price { font-weight: 600; color: #4a7c59; }
+        .specialists-loading, .specialists-empty { text-align: center; padding: 40px; color: #718096; }
+        .section-cta { text-align: center; margin-top: 32px; }
+        .section-cta a {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4a7c59;
+            color: #fff;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .section-cta a:hover { background: #3d6b4a; text-decoration: none; }
+
+        /* Footer */
+        footer {
+            margin-top: 48px;
+            padding: 32px 24px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(0,0,0,0.06);
+        }
+        footer a { margin: 0 12px; }
+        footer p { margin-top: 12px; }
+
+        @media (max-width: 768px) {
+            .hero { min-height: 60vh; padding: 32px 16px 48px; }
+            section { padding: 48px 16px; }
+        }
+        @media (max-width: 480px) {
+            .hero .cta { flex-direction: column; width: 100%; max-width: 280px; }
+            .hero .cta a { width: 100%; text-align: center; }
+        }
     </style>
 </head>
 <body>
-    <h1>Вітаємо у Healer Nexus Platform</h1>
-    <p>Оберіть куди ви хочете перейти:</p>
-    <div class="nav">
-        <a href="/tracker" class="link">💬 Чат з ШІ-асистентом</a>
-        <a href="/login" class="link">Увійти</a>
-        <a href="/register" class="link">Зареєструватись</a>
-        <a href="/dashboard" class="link">Панель управління</a>
-        <a href="/docs" class="link">API Документація</a>
+    <div class="hero">
+        <h1>Healer Nexus</h1>
+        <p class="tagline">AI-платформа для спеціалістів та їх клієнтів</p>
+        <div class="cta">
+            <a href="/dashboard/login" class="btn-primary">Увійти</a>
+            <a href="/register" class="btn-secondary">Зареєструватись</a>
+        </div>
     </div>
+
+    <section id="how-it-works">
+        <h2>Як це працює</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="icon">📝</div>
+                <h3>Зареєструйтесь</h3>
+                <p>Створіть обліковий запис як клієнт або спеціаліст за кілька хвилин.</p>
+            </div>
+            <div class="step">
+                <div class="icon">🔍</div>
+                <h3>Знайдіть спеціаліста</h3>
+                <p>Перегляньте профілі та оберіть фахівця під свої запити.</p>
+            </div>
+            <div class="step">
+                <div class="icon">💬</div>
+                <h3>Отримайте консультацію</h3>
+                <p>Запишіться на сесію та отримайте підтримку онлайн.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="for-specialists">
+        <h2>Для спеціалістів</h2>
+        <div class="benefits">
+            <div class="benefit">
+                <h3>Особистий блог з SEO</h3>
+                <p>Публікуйте статті, привертайте клієнтів через пошук та контент.</p>
+            </div>
+            <div class="benefit">
+                <h3>AI-асистент для клієнтів</h3>
+                <p>Автоматизуйте первинні відповіді та допомогу 24/7.</p>
+            </div>
+            <div class="benefit">
+                <h3>Система бронювань</h3>
+                <p>Управляйте записами та календарем в одному місці.</p>
+            </div>
+            <div class="benefit">
+                <h3>Аналітика та воронка</h3>
+                <p>Рекомендації, перегляди постів та метрики для росту.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="specialists">
+        <h2>Наші спеціалісти</h2>
+        <div id="specialists-container" class="specialists-loading">Завантаження...</div>
+        <div class="section-cta" id="all-specialists-cta" style="display:none;">
+            <a href="/dashboard/login">Дивитись всіх</a>
+        </div>
+    </section>
+
+    <footer>
+        <a href="/dashboard/login">Увійти</a>
+        <a href="/register">Зареєструватись</a>
+        <a href="/docs">API Документація</a>
+        <p>© 2026 Healer Nexus. Nexus Universe Ecosystem.</p>
+    </footer>
+
+    <script>
+        (function() {
+            var container = document.getElementById('specialists-container');
+            var cta = document.getElementById('all-specialists-cta');
+            fetch('/api/specialists').then(function(r) { return r.json(); }).then(function(data) {
+                var list = Array.isArray(data) ? data : (data && data.items ? data.items : []);
+                var show = list.slice(0, 6);
+                if (show.length === 0) {
+                    container.className = 'specialists-empty';
+                    container.textContent = 'Поки немає спеціалістів. Станьте першим!';
+                    return;
+                }
+                container.className = 'specialists-grid';
+                container.innerHTML = show.map(function(s) {
+                    return '<div class="specialist-card">' +
+                        '<h3>' + (s.name || 'Спеціаліст').replace(/</g, '&lt;') + '</h3>' +
+                        '<div class="spec">' + (s.specialty || s.service_type || '—').replace(/</g, '&lt;') + '</div>' +
+                        '<div class="price">' + (s.hourly_rate ? s.hourly_rate + ' грн/год' : '—') + '</div>' +
+                        '</div>';
+                }).join('');
+                if (list.length > 6) cta.style.display = 'block';
+            }).catch(function() {
+                container.className = 'specialists-empty';
+                container.textContent = 'Не вдалося завантажити список. Спробуйте пізніше.';
+            });
+        })();
+    </script>
 </body>
 </html>

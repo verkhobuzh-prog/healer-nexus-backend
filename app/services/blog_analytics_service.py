@@ -101,7 +101,14 @@ class BlogAnalyticsService:
         )
         await self.session.commit()
 
-    async def aggregate_daily(self, target_date: date) -> None:
+    def _ensure_date(self, value: date | str) -> date:
+        """Ensure value is datetime.date for PostgreSQL Date column comparison."""
+        if isinstance(value, str):
+            return date.fromisoformat(value)
+        return value
+
+    async def aggregate_daily(self, target_date: date | str) -> None:
+        target_date = self._ensure_date(target_date)
         # Compare DATE to date object (PostgreSQL strict: no date = varchar)
         # Get post_ids that have views on target_date
         q = (

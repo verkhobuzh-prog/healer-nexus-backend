@@ -65,9 +65,11 @@ class BlogAnalyticsAggregator:
                 exc_info=True,
             )
 
-    async def aggregate_now(self, target_date: date | None = None) -> None:
+    async def aggregate_now(self, target_date: date | str | None = None) -> None:
         """Manual trigger for aggregation (e.g., backfill)."""
         target = target_date or (date.today() - timedelta(days=1))
+        if isinstance(target, str):
+            target = date.fromisoformat(target)
         await self._aggregate_for_date(target)
 
 
