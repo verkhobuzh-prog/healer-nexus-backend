@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -27,7 +28,8 @@ def _generate_unique_slug(name: str, specialist_id: int) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", name.lower()).strip("-")
     if not slug:
         slug = "specialist"
-    return f"{slug}-{specialist_id}"
+    short_id = uuid.uuid4().hex[:6]
+    return f"{slug}-{specialist_id}-{short_id}"
 
 
 class AuthService:
@@ -61,18 +63,9 @@ class AuthService:
         specialist_id: int | None = None
         practitioner_id: int | None = None
 
-        if role == "specialist":
-            specialist = Specialist(
-                user_id=user.id,
-                name=name,
-                service_type="healer",
-                specialty="General",
-                delivery_method="human",
-            )
-            self.session.add(specialist)
-            await self.session.flush()
-            specialist_id = specialist.id
-        elif role == "practitioner":
+        # Specialist + PractitionerProfile тільки для role == "practitioner".
+        # Для role "user" та "admin" нічого не створюємо.
+        if role == "practitioner":
             specialist = Specialist(
                 user_id=user.id,
                 name=name,

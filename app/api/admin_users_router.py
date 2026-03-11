@@ -5,6 +5,7 @@ Only accessible by admin role.
 from __future__ import annotations
 import logging
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -44,7 +45,8 @@ def _generate_unique_slug(name: str, specialist_id: int) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", name.lower()).strip("-")
     if not slug:
         slug = "specialist"
-    return f"{slug}-{specialist_id}"
+    short_id = uuid.uuid4().hex[:6]
+    return f"{slug}-{specialist_id}-{short_id}"
 
 
 # --- Users ---
