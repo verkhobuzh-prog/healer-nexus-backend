@@ -32,7 +32,11 @@ from app.schemas.specialist_application import (
     ApplicationReview,
     RoleUpdate,
 )
-from app.schemas.auth import AdminResetPasswordRequest, AdminCreateUserRequest
+from app.schemas.auth import (
+    AdminResetPasswordRequest,
+    AdminCreateUserRequest,
+    AdminUpdateEmailRequest,
+)
 from app.core.security import hash_password
 from app.config import settings
 from app.services.promoterx_service import PromoterXService
@@ -256,6 +260,32 @@ async def reset_user_password(
     await db.commit()
 
     return {"message": "Password updated", "user_id": user_id}
+
+
+@router.put("/users/{user_id}/email")
+async def update_user_email(
+    user_id: int,
+    body: AdminUpdateEmailRequest,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update user email. Body: {"email": "new@example.com"}. Admin only."""
+    r = await db.execute(select(User).where(User.id == user_id))
+    user = r.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    existing = await db.execute(
+        select(User).where(User.email == body.email, User.id != user_id)
+    )
+    if existing.scalars().first() is not None:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    user.email = body.email
+    await db.commit()
+    return {
+        "message": "Email updated",
+        "user_id": user_id,
+        "new_email": body.email,
+    }
 
 
 # --- Specialist Applications ---

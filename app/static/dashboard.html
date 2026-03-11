@@ -167,9 +167,43 @@
         </div>
 
         <div class="dashboard-section" id="section-clients" style="display:none">
-            <h2 style="margin-bottom: 16px; color: #2c3e50;">Клієнти / Користувачі</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; color:#2c3e50;">Клієнти / Користувачі</h2>
+                <button type="button" onclick="openCreateClientModal()" style="padding:10px 20px; background:#4a7c59; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">➕ Додати клієнта</button>
+            </div>
             <div id="clients-list" style="background:white; border-radius:12px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                 <p style="color:#7f8c8d; text-align:center;">Завантаження...</p>
+            </div>
+            <!-- Модалка: Додати клієнта -->
+            <div id="modal-create-client" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;" class="modal-overlay-flex">
+                <div style="background:white; border-radius:16px; padding:32px; width:440px; max-width:90vw;">
+                    <h3 style="margin:0 0 20px 0;">Додати клієнта</h3>
+                    <div id="create-client-error" style="color:#c53030; font-size:14px; margin-bottom:12px; display:none;"></div>
+                    <div style="margin-bottom:14px;"><label style="display:block; margin-bottom:4px; font-weight:500;">Email *</label><input type="email" id="create-client-email" placeholder="client@example.com" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"></div>
+                    <div style="margin-bottom:14px;"><label style="display:block; margin-bottom:4px; font-weight:500;">Ім'я *</label><input type="text" id="create-client-name" placeholder="Ім'я клієнта" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"></div>
+                    <div style="margin-bottom:14px;"><label style="display:block; margin-bottom:4px; font-weight:500;">Пароль * (мін. 6 символів)</label><input type="password" id="create-client-password" placeholder="••••••••" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"></div>
+                    <div style="margin-bottom:20px;"><label style="display:block; margin-bottom:4px; font-weight:500;">Роль</label><select id="create-client-role" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"><option value="user">Користувач</option><option value="practitioner">Спеціаліст</option></select></div>
+                    <div style="display:flex; gap:10px; justify-content:flex-end;"><button type="button" onclick="closeCreateClientModal()" style="padding:10px 20px; background:#95a5a6; color:white; border:none; border-radius:8px; cursor:pointer;">Скасувати</button><button type="button" onclick="submitCreateClient()" style="padding:10px 20px; background:#4a7c59; color:white; border:none; border-radius:8px; cursor:pointer;">Створити</button></div>
+                </div>
+            </div>
+            <!-- Модалка: Скинути пароль -->
+            <div id="modal-overlay-reset-password" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:2001; align-items:center; justify-content:center;" class="modal-overlay-flex">
+                <div style="background:white; border-radius:16px; padding:32px; width:440px; max-width:90vw;">
+                    <h3 style="margin:0 0 20px 0;">Скинути пароль</h3>
+                    <p id="reset-password-user-info" style="color:#666; font-size:14px; margin-bottom:16px;"></p>
+                    <div style="margin-bottom:20px;"><label style="display:block; margin-bottom:4px; font-weight:500;">Новий пароль *</label><input type="password" id="client-reset-password" placeholder="Мінімум 6 символів" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"></div>
+                    <div style="display:flex; gap:10px; justify-content:flex-end;"><button type="button" onclick="closeResetPasswordModal()" style="padding:10px 20px; background:#95a5a6; color:white; border:none; border-radius:8px; cursor:pointer;">Скасувати</button><button type="button" onclick="submitResetPassword()" style="padding:10px 20px; background:#4a7c59; color:white; border:none; border-radius:8px; cursor:pointer;">Оновити пароль</button></div>
+                </div>
+            </div>
+            <!-- Модалка: Змінити email -->
+            <div id="modal-change-email" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:2001; align-items:center; justify-content:center;" class="modal-overlay-flex">
+                <div style="background:white; border-radius:16px; padding:32px; width:440px; max-width:90vw;">
+                    <h3 style="margin:0 0 20px 0;">Змінити email</h3>
+                    <p id="change-email-user-info" style="color:#666; font-size:14px; margin-bottom:16px;"></p>
+                    <div id="change-email-error" style="color:#c53030; font-size:14px; margin-bottom:12px; display:none;"></div>
+                    <div style="margin-bottom:20px;"><label style="display:block; margin-bottom:4px; font-weight:500;">Новий email *</label><input type="email" id="change-email-new" placeholder="new@example.com" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;"></div>
+                    <div style="display:flex; gap:10px; justify-content:flex-end;"><button type="button" onclick="closeChangeEmailModal()" style="padding:10px 20px; background:#95a5a6; color:white; border:none; border-radius:8px; cursor:pointer;">Скасувати</button><button type="button" onclick="submitChangeEmail()" style="padding:10px 20px; background:#4a7c59; color:white; border:none; border-radius:8px; cursor:pointer;">Зберегти</button></div>
+                </div>
             </div>
         </div>
 
@@ -655,13 +689,119 @@
                     el.innerHTML = '<div style="text-align:center; padding:40px; color:#7f8c8d;"><div style="font-size:48px; margin-bottom:12px;">🙋</div><p>Поки немає зареєстрованих клієнтів</p></div>';
                     return;
                 }
-                el.innerHTML = '<table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#f8f9fa;"><th style="text-align:left; padding:12px;">ID</th><th style="text-align:left; padding:12px;">Email</th><th style="text-align:left; padding:12px;">Ім\'я</th><th style="text-align:left; padding:12px;">Роль</th></tr></thead><tbody>' +
+                _clientsListCache = items;
+                el.innerHTML = '<table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#f8f9fa;"><th style="text-align:left; padding:12px;">ID</th><th style="text-align:left; padding:12px;">Email</th><th style="text-align:left; padding:12px;">Ім\'я</th><th style="text-align:left; padding:12px;">Роль</th><th style="text-align:left; padding:12px;">Дії</th></tr></thead><tbody>' +
                     items.map(function(u) {
-                        return '<tr style="border-top:1px solid #eee;"><td style="padding:12px;">' + (u.id || '') + '</td><td style="padding:12px;">' + escapeHtml(u.email || '') + '</td><td style="padding:12px;">' + escapeHtml(u.name || u.username || '') + '</td><td style="padding:12px;">' + (u.role || '') + '</td></tr>';
+                        return '<tr style="border-top:1px solid #eee;"><td style="padding:12px;">' + (u.id || '') + '</td><td style="padding:12px;">' + escapeHtml(u.email || '') + '</td><td style="padding:12px;">' + escapeHtml(u.name || u.username || '') + '</td><td style="padding:12px;">' + (u.role || '') + '</td><td style="padding:12px;"><button type="button" onclick="openResetPasswordModal(' + u.id + ',\'' + (u.email || '').replace(/'/g, "\\'") + '\')" style="padding:6px 12px; margin-right:6px; background:#f39c12; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">Скинути пароль</button><button type="button" onclick="openChangeEmailModal(' + u.id + ',\'' + (u.email || '').replace(/'/g, "\\'") + '\')" style="padding:6px 12px; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px;">Змінити email</button></td></tr>';
                     }).join('') + '</tbody></table>';
             } catch (e) {
                 console.error('Помилка завантаження клієнтів:', e);
                 el.innerHTML = '<p style="color:#e74c3c; text-align:center; padding:20px;">Помилка завантаження клієнтів</p>';
+            }
+        }
+        var _clientsListCache = [];
+        function openCreateClientModal() {
+            document.getElementById('create-client-email').value = '';
+            document.getElementById('create-client-name').value = '';
+            document.getElementById('create-client-password').value = '';
+            document.getElementById('create-client-role').value = 'user';
+            document.getElementById('create-client-error').style.display = 'none';
+            document.getElementById('modal-create-client').style.display = 'flex';
+        }
+        function closeCreateClientModal() {
+            document.getElementById('modal-create-client').style.display = 'none';
+        }
+        async function submitCreateClient() {
+            var email = document.getElementById('create-client-email').value.trim();
+            var name = document.getElementById('create-client-name').value.trim();
+            var password = document.getElementById('create-client-password').value;
+            var role = document.getElementById('create-client-role').value || 'user';
+            var errEl = document.getElementById('create-client-error');
+            errEl.style.display = 'none';
+            if (!email || !name || !password) {
+                errEl.textContent = 'Заповніть усі обов\'язкові поля';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (password.length < 6) {
+                errEl.textContent = 'Пароль має бути мінімум 6 символів';
+                errEl.style.display = 'block';
+                return;
+            }
+            try {
+                await HealerAPI.post('/api/admin/users/create', { email: email, name: name, password: password, role: role });
+                closeCreateClientModal();
+                if (typeof showToast === 'function') showToast('Клієнта створено', 'success'); else alert('Клієнта створено');
+                loadClients();
+            } catch (e) {
+                var msg = (e.message || (e.body && e.body.detail) ? (typeof e.body.detail === 'string' ? e.body.detail : JSON.stringify(e.body.detail)) : 'Помилка створення');
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
+            }
+        }
+        var _resetPasswordUserId = null;
+        function openResetPasswordModal(userId, userEmail) {
+            _resetPasswordUserId = userId;
+            var info = document.getElementById('reset-password-user-info');
+            if (info) info.textContent = 'Користувач: ' + (userEmail || 'id ' + userId);
+            var pwd = document.getElementById('client-reset-password');
+            if (pwd) pwd.value = '';
+            var overlay = document.getElementById('modal-overlay-reset-password');
+            if (overlay) overlay.style.display = 'flex';
+        }
+        function closeResetPasswordModal() {
+            var overlay = document.getElementById('modal-overlay-reset-password');
+            if (overlay) overlay.style.display = 'none';
+            _resetPasswordUserId = null;
+        }
+        async function submitResetPassword() {
+            if (!_resetPasswordUserId) return;
+            var newPassword = document.getElementById('client-reset-password').value;
+            if (!newPassword || newPassword.length < 6) {
+                alert('Пароль мінімум 6 символів');
+                return;
+            }
+            try {
+                await HealerAPI.put('/api/admin/users/' + _resetPasswordUserId + '/password', { new_password: newPassword });
+                closeResetPasswordModal();
+                if (typeof showToast === 'function') showToast('Пароль оновлено', 'success'); else alert('Пароль оновлено');
+                loadClients();
+            } catch (e) {
+                console.error('Помилка скидання пароля:', e);
+                alert(e.message || 'Помилка');
+            }
+        }
+        var _changeEmailUserId = null;
+        function openChangeEmailModal(userId, currentEmail) {
+            _changeEmailUserId = userId;
+            document.getElementById('change-email-user-info').textContent = 'Поточний email: ' + (currentEmail || '');
+            document.getElementById('change-email-new').value = currentEmail || '';
+            document.getElementById('change-email-error').style.display = 'none';
+            document.getElementById('modal-change-email').style.display = 'flex';
+        }
+        function closeChangeEmailModal() {
+            document.getElementById('modal-change-email').style.display = 'none';
+            _changeEmailUserId = null;
+        }
+        async function submitChangeEmail() {
+            if (!_changeEmailUserId) return;
+            var newEmail = document.getElementById('change-email-new').value.trim();
+            var errEl = document.getElementById('change-email-error');
+            errEl.style.display = 'none';
+            if (!newEmail || newEmail.length < 5) {
+                errEl.textContent = 'Введіть коректний email';
+                errEl.style.display = 'block';
+                return;
+            }
+            try {
+                await HealerAPI.put('/api/admin/users/' + _changeEmailUserId + '/email', { email: newEmail });
+                closeChangeEmailModal();
+                if (typeof showToast === 'function') showToast('Email оновлено', 'success'); else alert('Email оновлено');
+                loadClients();
+            } catch (e) {
+                var msg = (e.message || (e.body && e.body.detail) ? (typeof e.body.detail === 'string' ? e.body.detail : JSON.stringify(e.body.detail)) : 'Помилка');
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
             }
         }
 

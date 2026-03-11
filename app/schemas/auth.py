@@ -60,5 +60,10 @@ class AdminCreateUserRequest(BaseModel):
     role: str = Field(default="user", pattern="^(user|practitioner|admin)$")
 
 
+class AdminUpdateEmailRequest(BaseModel):
+    """Body for PUT /api/admin/users/{id}/email."""
+    email: str = Field(..., min_length=5, max_length=255)
+
+
 class MessageResponse(BaseModel):
     message: str

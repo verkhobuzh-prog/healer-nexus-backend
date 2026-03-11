@@ -108,7 +108,7 @@ async def get_post_stats(
     project_id = _project_id()
     await _ensure_post_ownership(db, project_id, post_id, practitioner.id)
     svc = BlogAnalyticsService(db, project_id)
-    analytics = await svc.get_post_analytics(post_id)
+    analytics = await svc.get_post_analytics(post_id, practitioner_id=practitioner.id)
     if not analytics:
         raise HTTPException(status_code=404, detail="Post not found")
     return analytics
@@ -125,7 +125,9 @@ async def get_post_daily(
     project_id = _project_id()
     await _ensure_post_ownership(db, project_id, post_id, practitioner.id)
     svc = BlogAnalyticsService(db, project_id)
-    return await svc.get_post_daily_views(post_id, days=days)
+    return await svc.get_post_daily_views(
+        post_id, days=days, practitioner_id=practitioner.id
+    )
 
 
 @router.get("/posts/{post_id}/referrers", response_model=list[ReferrerStats])
@@ -139,7 +141,9 @@ async def get_post_referrers(
     project_id = _project_id()
     await _ensure_post_ownership(db, project_id, post_id, practitioner.id)
     svc = BlogAnalyticsService(db, project_id)
-    return await svc.get_post_referrers(post_id, days=days)
+    return await svc.get_post_referrers(
+        post_id, days=days, practitioner_id=practitioner.id
+    )
 
 
 # ─── Public endpoints (no auth) ───

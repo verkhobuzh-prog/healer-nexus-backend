@@ -192,15 +192,17 @@ class BlogAnalyticsService:
                 )
         await self.session.commit()
 
-    async def get_post_analytics(self, post_id: int) -> Optional[PostAnalytics]:
-        post = await self.session.execute(
-            select(BlogPost)
-            .where(
-                BlogPost.id == post_id,
-                BlogPost.project_id == self.project_id,
-            )
+    async def get_post_analytics(
+        self, post_id: int, practitioner_id: Optional[int] = None
+    ) -> Optional[PostAnalytics]:
+        q = select(BlogPost).where(
+            BlogPost.id == post_id,
+            BlogPost.project_id == self.project_id,
         )
-        post = post.scalar_one_or_none()
+        if practitioner_id is not None:
+            q = q.where(BlogPost.practitioner_id == practitioner_id)
+        r = await self.session.execute(q)
+        post = r.scalar_one_or_none()
         if not post:
             return None
 
@@ -339,8 +341,21 @@ class BlogAnalyticsService:
         )
 
     async def get_post_daily_views(
-        self, post_id: int, days: int = 30
+        self,
+        post_id: int,
+        days: int = 30,
+        practitioner_id: Optional[int] = None,
     ) -> list[DailyViewStats]:
+        if practitioner_id is not None:
+            r = await self.session.execute(
+                select(BlogPost.id).where(
+                    BlogPost.id == post_id,
+                    BlogPost.project_id == self.project_id,
+                    BlogPost.practitioner_id == practitioner_id,
+                )
+            )
+            if r.scalar_one_or_none() is None:
+                return []
         end = date.today()
         start = end - timedelta(days=days - 1)
         q = (
@@ -364,8 +379,24 @@ class BlogAnalyticsService:
         ]
 
     async def get_post_referrers(
-        self, post_id: int, days: int = 30
+        self,
+        post_id: int,
+        days: int = 30,
+        practitioner_id: Optional[int] = None,
     ) -> list[ReferrerStats]:
+        if practitioner_id is not None:
+            r = await self.session.execute(
+                select(BlogPost.id).where(
+                    BlogPost.id == post_id,
+                    BlogPost.project_id == self.project_id,
+                    BlogPost.practitioner_id == practitioner_id,
+                )
+            )
+            if r.scalar_one_or_none() is None:
+                return [
+                    ReferrerStats(source=s, count=0, percent=0.0)
+                    for s in ["telegram", "google", "facebook", "twitter", "direct", "other"]
+                ]
         start = date.today() - timedelta(days=days - 1)
         q = (
             select(BlogAnalyticsDaily)

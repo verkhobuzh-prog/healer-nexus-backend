@@ -398,6 +398,8 @@
             if (name === 'bookings') loadBookings();
             if (name === 'profile') loadProfile();
             if (name === 'social') loadSocial();
+            if (name === 'reviews') loadReviews();
+            if (name === 'ai-generator') { /* AI Генератор — форма вже в секції */ }
         }
 
         // ── Overview (Welcome card + stats) ──
@@ -456,9 +458,10 @@
 
         // ── Blog ──
         async function loadBlog() {
-            var posts = await HealerAPI.get('/api/blog/posts');
-            if (!posts) return;
+            var raw = await HealerAPI.get('/api/blog/posts');
+            var posts = (raw && raw.items) ? raw.items : (Array.isArray(raw) ? raw : []);
             const el = document.getElementById('blog-posts');
+            if (!el) return;
             if (!posts.length) {
                 el.innerHTML = '<div class="alert alert-success">Ще немає постів. Натисніть "Написати пост" або використайте AI Генератор!</div>';
                 return;
@@ -818,7 +821,19 @@
             loadActionCard();
         }
 
+        function loadReviews() {
+            var el = document.getElementById('section-reviews');
+            if (el) { /* Секція вже має placeholder "Скоро буде доступно." */ }
+        }
+
         window.showSection = showSection;
+        window.loadBlog = loadBlog;
+        window.loadAnalytics = loadAnalytics;
+        window.loadBookings = loadBookings;
+        window.loadProfile = loadProfile;
+        window.loadSocial = loadSocial;
+        window.loadReviews = loadReviews;
+        window.loadOverview = loadOverview;
         window.openCreatePost = openCreatePost;
         window.closePostModal = closePostModal;
         window.savePost = savePost;
