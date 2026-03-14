@@ -1,6 +1,8 @@
 """Auth API: register, login, refresh, logout, change-password, me."""
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,7 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import AuthService
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -74,18 +77,31 @@ async def register(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    specialist_id = getattr(user, "_specialist_id", None)
-    practitioner_id = getattr(user, "_practitioner_id", None)
-    # Recompute from DB for UserBrief (user object from service doesn't carry _specialist_id set)
-    sid, pid = await svc._get_user_ids(user)
-    user_brief = UserBrief(
-        id=user.id,
-        email=user.email or "",
-        name=user.username,
-        role=user.role,
-        specialist_id=sid,
-        practitioner_id=pid,
-    )
+    except Exception as e:
+        logger.exception(f"Register failed for {body.email}: {e}")
+        raise HTTPException(status_code=500, detail="Registration error")
+
+    try:
+        sid, pid = await svc._get_user_ids(user)
+        user_brief = UserBrief(
+            id=user.id,
+            email=user.email or "",
+            name=user.username,
+            role=user.role,
+            specialist_id=sid,
+            practitioner_id=pid,
+        )
+    except Exception as e:
+        logger.exception(f"Register post-processing failed for user {user.id}: {e}")
+        user_brief = UserBrief(
+            id=user.id,
+            email=user.email or "",
+            name=user.username or "",
+            role=user.role or "user",
+            specialist_id=None,
+            practitioner_id=None,
+        )
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -109,22 +125,44 @@ async def login(
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
-    sid, pid = await svc._get_user_ids(user)
-    user_brief = UserBrief(
-        id=user.id,
-        email=user.email or "",
-        name=user.username,
-        role=user.role,
-        specialist_id=sid,
-        practitioner_id=pid,
-    )
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=_expires_in_seconds(),
-        user=user_brief,
-    )
+    except Exception as e:
+        logger.exception(f"Login failed for {body.email}: {e}")
+        raise HTTPException(status_code=500, detail="Login error")
+
+    try:
+        sid, pid = await svc._get_user_ids(user)
+        user_brief = UserBrief(
+            id=user.id,
+            email=user.email or "",
+            name=user.username,
+            role=user.role,
+            specialist_id=sid,
+            practitioner_id=pid,
+        )
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            expires_in=_expires_in_seconds(),
+            user=user_brief,
+        )
+    except Exception as e:
+        logger.exception(f"Login post-processing failed for user {user.id}: {e}")
+        # Повернути токен навіть якщо UserBrief не створився
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            expires_in=_expires_in_seconds(),
+            user=UserBrief(
+                id=user.id,
+                email=user.email or "",
+                name=user.username or "",
+                role=user.role or "user",
+                specialist_id=None,
+                practitioner_id=None,
+            ),
+        )
 
 
 @router.post("/refresh", response_model=TokenResponse)
