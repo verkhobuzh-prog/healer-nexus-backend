@@ -38,6 +38,7 @@ from app.api.recommendation_router import router as recommendation_router
 from app.api.specialist_pages_router import router as specialist_pages_router
 from app.api.dashboard_pages_router import router as dashboard_pages_router
 from app.api.seo_router import router as seo_router
+from app.api.agent_router import router as agent_router
 from app.api.telegram_webhook_router import router as telegram_webhook_router
 
 # Background tasks
@@ -109,6 +110,10 @@ async def startup():
 
         asyncio.create_task(promoterx_daily_loop())
 
+        # AI Agents
+        from app.agents.agent_manager import agent_manager
+        await agent_manager.start_all()
+
         logger.info("Healer Nexus started")
     except Exception as e:
         logger.warning("Startup task failed (non-critical): %s", e)
@@ -135,6 +140,10 @@ async def promoterx_daily_loop():
 
 @app.on_event("shutdown")
 async def shutdown():
+    # Stop AI Agents
+    from app.agents.agent_manager import agent_manager
+    await agent_manager.stop_all()
+
     await blog_analytics_aggregator.stop()
     if settings.GEMINI_ENABLED:
         await blog_scheduler.stop()
@@ -158,6 +167,7 @@ app.include_router(recommendation_router)
 app.include_router(specialist_pages_router)
 app.include_router(dashboard_pages_router)
 app.include_router(seo_router)
+app.include_router(agent_router)
 app.include_router(telegram_webhook_router)
 
 # Templates for dashboard login

@@ -41,12 +41,10 @@ class Settings(BaseSettings):
     HEALER_SPECIALIST_BOT_TOKEN: str = ""
     HEALER_CONSUMER_BOT_TOKEN: str = ""
     ADMIN_CHAT_ID: str = ""
+    TELEGRAM_ADMIN_CHAT_ID: str | None = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
 
     # URLs
-    BASE_URL: str = Field(
-        default="http://localhost:8000",
-        description="Public base URL for links in Telegram posts etc.",
-    )
+    BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
     DEBUG: bool = False
 
     # Cloudinary

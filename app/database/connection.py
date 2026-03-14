@@ -46,6 +46,7 @@ async_session_maker = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+async_session_factory = async_session_maker  # alias for app.agents
 
 
 async def init_db():
@@ -67,6 +68,7 @@ async def init_db():
     from app.models.blog_post_tag import BlogPostTag  # noqa: F401
     from app.models.blog_post_view import BlogPostView  # noqa: F401
     from app.models.blog_analytics_daily import BlogAnalyticsDaily  # noqa: F401
+    from app.models.agent_config import AgentConfig, AgentLog  # noqa: F401
     try:
         from app.models.agent_audit_log import AgentAuditLog  # noqa: F401
     except ImportError:
