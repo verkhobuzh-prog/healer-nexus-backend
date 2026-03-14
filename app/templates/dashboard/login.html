@@ -145,18 +145,48 @@
 
         <div id="error" class="error" role="alert"></div>
 
-        <form id="login-form" novalidate>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
-            </div>
-            <div class="form-group">
-                <label for="password">Пароль</label>
-                <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
-                <div class="forgot"><span>Забули пароль?</span></div>
-            </div>
-            <button type="submit" class="btn btn-primary" id="submit-btn">Увійти</button>
-        </form>
+        <div id="login-block">
+            <form id="login-form" novalidate>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                    <div class="forgot"><span>Забули пароль?</span></div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="submit-btn">Увійти</button>
+            </form>
+            <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: #718096;">
+                Немає акаунту? <a href="#" id="show-register" style="color: #4a7c59; font-weight: 600;">Зареєструватись</a>
+            </p>
+        </div>
+
+        <div id="register-block" style="display: none;">
+            <form id="register-form" novalidate>
+                <div class="form-group">
+                    <label for="reg-email">Email *</label>
+                    <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="reg-name">Ім'я *</label>
+                    <input type="text" id="reg-name" placeholder="Ваше ім'я" autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Пароль * (мінімум 8 символів)</label>
+                    <input type="password" id="reg-password" placeholder="••••••••" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password-confirm">Підтвердження пароля *</label>
+                    <input type="password" id="reg-password-confirm" placeholder="••••••••" autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary" id="register-submit-btn">Зареєструватись</button>
+            </form>
+            <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: #718096;">
+                Вже є акаунт? <a href="#" id="show-login" style="color: #4a7c59; font-weight: 600;">Увійти</a>
+            </p>
+        </div>
     </div>
 
     <script src="/static/js/auth.js"></script>
@@ -164,6 +194,9 @@
         const form = document.getElementById('login-form');
         const errorEl = document.getElementById('error');
         const submitBtn = document.getElementById('submit-btn');
+        const loginBlock = document.getElementById('login-block');
+        const registerBlock = document.getElementById('register-block');
+        const logoSubtitle = document.querySelector('.logo p');
 
         function showError(msg) {
             errorEl.textContent = msg || 'Невірний email або пароль';
@@ -173,6 +206,37 @@
         function hideError() {
             errorEl.textContent = '';
             errorEl.classList.remove('visible');
+        }
+
+        function showRegisterForm() {
+            hideError();
+            if (loginBlock) loginBlock.style.display = 'none';
+            if (registerBlock) registerBlock.style.display = 'block';
+            if (logoSubtitle) logoSubtitle.textContent = 'Створіть обліковий запис';
+        }
+
+        function showLoginForm() {
+            hideError();
+            if (registerBlock) registerBlock.style.display = 'none';
+            if (loginBlock) loginBlock.style.display = 'block';
+            if (logoSubtitle) logoSubtitle.textContent = 'Увійдіть у свій акаунт';
+        }
+
+        if (document.getElementById('show-register')) {
+            document.getElementById('show-register').addEventListener('click', function (e) {
+                e.preventDefault();
+                showRegisterForm();
+            });
+        }
+        if (document.getElementById('show-login')) {
+            document.getElementById('show-login').addEventListener('click', function (e) {
+                e.preventDefault();
+                showLoginForm();
+            });
+        }
+
+        if (window.location.pathname === '/register' || new URLSearchParams(window.location.search).get('mode') === 'register') {
+            showRegisterForm();
         }
 
         form.addEventListener('submit', async function (e) {
@@ -227,6 +291,60 @@
                 showError('Помилка з\'єднання. Спробуйте ще раз.');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Увійти';
+            }
+        });
+
+        document.getElementById('register-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            hideError();
+            var email = document.getElementById('reg-email').value.trim();
+            var name = document.getElementById('reg-name').value.trim();
+            var password = document.getElementById('reg-password').value;
+            var confirmPassword = document.getElementById('reg-password-confirm').value;
+            var btn = document.getElementById('register-submit-btn');
+            if (!email || !name || !password || !confirmPassword) {
+                showError('Заповніть усі поля');
+                return;
+            }
+            if (name.length < 2) {
+                showError('Ім\'я має містити мінімум 2 символи');
+                return;
+            }
+            if (password.length < 8) {
+                showError('Пароль має містити мінімум 8 символів');
+                return;
+            }
+            if (password !== confirmPassword) {
+                showError('Паролі не збігаються');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Реєстрація...';
+            try {
+                var res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, name: name, password: password }),
+                });
+                var data = await res.json().catch(function () { return {}; });
+                if (!res.ok) {
+                    showError(typeof data.detail === 'string' ? data.detail : 'Помилка реєстрації');
+                    btn.disabled = false;
+                    btn.textContent = 'Зареєструватись';
+                    return;
+                }
+                if (data.access_token) localStorage.setItem('access_token', data.access_token);
+                if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+                if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+                var user = await HealerAuth.checkAuth();
+                if (user) localStorage.setItem('user', JSON.stringify(user));
+                if (HealerAuth.isAdmin()) window.location.href = '/admin-dashboard';
+                else if (HealerAuth.isPractitioner()) window.location.href = '/specialist-dashboard';
+                else window.location.href = '/admin-dashboard';
+            } catch (err) {
+                showError('Помилка з\'єднання. Спробуйте ще раз.');
+                btn.disabled = false;
+                btn.textContent = 'Зареєструватись';
             }
         });
     </script>

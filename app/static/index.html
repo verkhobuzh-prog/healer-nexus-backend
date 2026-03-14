@@ -124,13 +124,22 @@
             gap: 24px;
         }
         .specialist-card {
+            display: block;
             background: #fff;
             border-radius: 14px;
             padding: 24px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            color: inherit;
+            text-decoration: none;
         }
-        .specialist-card:hover { transform: translateY(-4px); }
+        .specialist-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            text-decoration: none;
+            color: inherit;
+        }
         .specialist-card h3 { font-size: 1.1rem; color: #2d3748; margin-bottom: 4px; }
         .specialist-card .spec { color: #6b9bd1; font-size: 0.9rem; margin-bottom: 8px; }
         .specialist-card .price { font-weight: 600; color: #4a7c59; }
@@ -250,11 +259,14 @@
                 }
                 container.className = 'specialists-grid';
                 container.innerHTML = show.map(function(s) {
-                    return '<div class="specialist-card">' +
-                        '<h3>' + (s.name || 'Спеціаліст').replace(/</g, '&lt;') + '</h3>' +
-                        '<div class="spec">' + (s.specialty || s.service_type || '—').replace(/</g, '&lt;') + '</div>' +
-                        '<div class="price">' + (s.hourly_rate ? s.hourly_rate + ' грн/год' : '—') + '</div>' +
-                        '</div>';
+                    var name = (s.name || 'Спеціаліст').replace(/</g, '&lt;');
+                    var spec = (s.specialty || s.service_type || '—').replace(/</g, '&lt;');
+                    var price = s.hourly_rate ? s.hourly_rate + ' грн/год' : '—';
+                    return '<a href="/dashboard/login" class="specialist-card">' +
+                        '<h3>' + name + '</h3>' +
+                        '<div class="spec">' + spec + '</div>' +
+                        '<div class="price">' + price + '</div>' +
+                        '</a>';
                 }).join('');
                 if (list.length > 6) cta.style.display = 'block';
             }).catch(function() {
